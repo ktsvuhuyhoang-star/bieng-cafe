@@ -1,0 +1,19 @@
+# Windows runtime (chỉ dùng khi chạy portable trên máy Windows)
+runtime/
+
+# Model SketchUp và bộ xuất (không cần cho bản online)
+sketchup_model/
+sketchup/
+
+# Cache Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Dữ liệu phát sinh khi chạy (giữ lại data/community.json làm seed)
+data/layout.json
+*.json.tmp
+
+# Hệ điều hành
+Thumbs.db
+.DS_Store
