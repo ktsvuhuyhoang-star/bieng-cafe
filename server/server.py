@@ -656,7 +656,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(200, cafe.community_payload())
         if route == '/api/layout':
             if cafe.layout is None:
-                return self.respond(404, {'ok': False, 'error': 'Chưa có mặt bằng nào được xuất bản.'})
+                return self.respond(204, b'')
             return self.respond(200, cafe.layout)
         if route == '/':
             target = STATIC / 'index.html'

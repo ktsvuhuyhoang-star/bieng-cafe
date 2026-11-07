@@ -68,7 +68,7 @@ window.publishedLayout = null;
 window.loadPublishedLayout = async function () {
     try {
         const response = await fetch('/api/layout', { cache: 'no-store' });
-        if (!response.ok) return null;
+        if (response.status === 204 || !response.ok) return null;
         const data = await response.json();
         if (data && data.schema === 'bieng-layout') window.publishedLayout = data;
     } catch (error) {

@@ -496,17 +496,9 @@ class CafeScene extends Phaser.Scene {
             .catch(function () { /* không chặn game nếu health lỗi */ });
     }
 
-    /** Cửa WC: đóng thì chặn lối vào; nhiều người vẫn dùng chung bên trong được. */
+    /** Cửa WC: đóng thì không vào được. Không dùng physics collider để tránh lỗi khung hình. */
     setupWcDoor() {
         if (!this.player || !this.wcDoorPoint) return;
-        // Không đặt chướng ngại nếu điểm cửa quá gần chỗ spawn (tránh kẹt nhân vật)
-        const spawnDistance = Phaser.Math.Distance.Between(
-            this.spawnPoint.x, this.spawnPoint.y, this.wcDoorPoint.x, this.wcDoorPoint.y);
-        if (spawnDistance < 70) return;
-
-        this.wcBlocker = this.add.zone(this.wcDoorPoint.x, this.wcDoorPoint.y, 30, 30);
-        this.physics.add.existing(this.wcBlocker, true);
-        this.physics.add.collider(this.player, this.wcBlocker);
         this.wcSign = this.add.text(this.wcDoorPoint.x, this.wcDoorPoint.y - 26, '🚪 WC', {
             fontFamily: 'sans-serif', fontSize: '10px', color: '#f8fafc',
             stroke: '#1e293b', strokeThickness: 3
@@ -516,7 +508,6 @@ class CafeScene extends Phaser.Scene {
 
     applyWcState(open) {
         window.wcOpen = !!open;
-        if (this.wcBlocker && this.wcBlocker.body) this.wcBlocker.body.enable = !window.wcOpen;
         if (this.wcSign) this.wcSign.setText(window.wcOpen ? '🚪 WC: mở' : '🚪 WC: đóng');
     }
 
@@ -972,6 +963,8 @@ class CafeScene extends Phaser.Scene {
         }
 
         const speed = 125;
+        const safeX = this.player.x;
+        const safeY = this.player.y;
         let vx = 0;
         let vy = 0;
         let direction = 'down';
@@ -1021,6 +1014,16 @@ class CafeScene extends Phaser.Scene {
         }
 
         this.player.setVelocity(vx, vy);
+
+        // Cửa WC đóng thì chặn lối vào (không dùng physics collider)
+        if (!window.wcOpen && this.wcDoorPoint) {
+            const doorDistance = Phaser.Math.Distance.Between(
+                this.player.x, this.player.y, this.wcDoorPoint.x, this.wcDoorPoint.y);
+            if (doorDistance < 26) {
+                this.player.setPosition(safeX, safeY);
+                this.player.setVelocity(0, 0);
+            }
+        }
 
         const isMoving = vx !== 0 || vy !== 0;
 
