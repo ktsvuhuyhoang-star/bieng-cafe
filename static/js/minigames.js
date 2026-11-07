@@ -323,6 +323,7 @@
             s.progress += (good ? 20 : -7) * dt;
             s.progress = Math.max(0, Math.min(100, s.progress));
             if (s.progress >= 100) finish(s, 'Cây được tưới đều rồi! Xanh mướt 🌱');
+        }
     }
 
     function finish(s, message) {
@@ -402,8 +403,6 @@
             mine.taps += 1;
             mine.progress = Math.min(100, mine.progress + 100 / 26);
             setStatus('Đang đánh trà… ' + Math.round(mine.progress) + '%');
-            return;
-        }
             return;
         }
         if (mine.key === 'banana') {
