@@ -1,4 +1,4 @@
-"""Bieng Cafe 2D - quán cà phê 2D nhiều người chơi (bản 3.0).
+﻿"""Bieng Cafe 2D - quán cà phê 2D nhiều người chơi (bản 3.0).
 
 Không còn đơn hàng thật, trạng thái đơn hay màn hình quầy bar.
 Có: không gian quán, chat realtime, bảng tin + lời nhắn dùng chung,
@@ -96,7 +96,6 @@ class Cafe:
         self.clients = {}
         self.players = {}
         self.jukebox = {'current_track': 0}
-        self.wc_open = True
         self.duels = {}
         self.duel_seq = 0
         self.failures = {}
@@ -448,7 +447,6 @@ class Cafe:
         try:
             await ws.send(json.dumps({'type': 'welcome', 'your_id': pid, 'players': self.players,
                                       'jukebox': self.jukebox, 'version': VERSION,
-                                      'wc_open': self.wc_open,
                                       'community': self.community_payload()}, ensure_ascii=False))
             async for raw in ws:
                 try:
@@ -504,10 +502,6 @@ class Cafe:
                         badges = [b for b in (data.get('badges') or []) if b in BADGES][:4]
                         self.players[pid]['badges'] = badges
                         await self.broadcast({'type': 'player_badges', 'id': pid, 'badges': badges}, exclude=pid)
-                    elif event == 'wc_toggle' and pid in self.players:
-                        self.wc_open = bool(data.get('open', not self.wc_open))
-                        await self.broadcast({'type': 'wc_state', 'open': self.wc_open,
-                                              'by': self.players[pid]['name']})
                     elif event == 'duel_invite':
                         await self.duel_invite(ws, pid, data)
                     elif event == 'duel_answer':

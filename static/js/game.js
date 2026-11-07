@@ -169,7 +169,7 @@ const BIENG_BUNDLED_LAYOUT = {"schema":"bieng-layout","version":1,"exporter":"1.
         });
         const label=(x,y,text)=>scene.add.text(x,y,text,{fontSize:'10px',fontFamily:'sans-serif',color:'#fff3d4',stroke:'#29251c',strokeThickness:3}).setOrigin(.5).setDepth(21);
         label(npc.x,npc.y-28,'Hoàng Bệu');
-        const wc=doors.find(o=>/ve sinh/i.test(o.d.name));if(wc){label(wc.c.x,wc.r.y-35,'VỆ SINH');scene.wcDoorPoint={x:wc.c.x,y:wc.c.y};}
+        const wc=doors.find(o=>/ve sinh/i.test(o.d.name));if(wc)label(wc.c.x,wc.r.y-35,'VỆ SINH');
         scene.physics.world.setBounds(0,0,960,540);scene.syncedLayout=layout;
         api.current=layout;api.updateStatus();
         const clipped=scene.mapDefinitionObjects.filter(o=>o.kind!=='wall'&&(o.bounds.x<0||o.bounds.y<0||o.bounds.x+o.bounds.w>960||o.bounds.y+o.bounds.h>540));
@@ -298,7 +298,6 @@ class CafeScene extends Phaser.Scene {
 
         // Physical Colliders with cafe obstacles (properly attached to player)
         this.physics.add.collider(this.player, this.obstacles);
-        this.setupWcDoor();
 
         // Name Tag
         this.playerNameTag = this.add.text(180, 110, tagText(profile.name, loadBadges()), {
@@ -504,26 +503,6 @@ class CafeScene extends Phaser.Scene {
             .catch(function () { /* không chặn game nếu health lỗi */ });
     }
 
-    /** Cửa WC: đóng thì không vào được. Không dùng physics collider để tránh lỗi khung hình. */
-    setupWcDoor() {
-        if (!this.player || !this.wcDoorPoint) return;
-        this.wcSign = this.add.text(this.wcDoorPoint.x, this.wcDoorPoint.y - 26, '🚪 WC', {
-            fontFamily: 'sans-serif', fontSize: '10px', color: '#f8fafc',
-            stroke: '#1e293b', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(30);
-        this.applyWcState(window.wcOpen !== false);
-    }
-
-    applyWcState(open) {
-        window.wcOpen = !!open;
-        if (this.wcSign) this.wcSign.setText(window.wcOpen ? '🚪 WC: mở' : '🚪 WC: đóng');
-    }
-
-    nearWcDoor() {
-        if (!this.wcDoorPoint) return false;
-        return Phaser.Math.Distance.Between(this.player.x, this.player.y,
-            this.wcDoorPoint.x, this.wcDoorPoint.y) < 44;
-    }
 
     nearWash() {
         const points = this.washPoints || [];
@@ -594,12 +573,6 @@ class CafeScene extends Phaser.Scene {
             if (data.jukebox) {
                 window.cafeAudio.setTrack(data.jukebox.current_track || 0);
             }
-            if (typeof data.wc_open === 'boolean') this.applyWcState(data.wc_open);
-        });
-
-        window.cafeNetwork.on('wc_state', (data) => {
-            this.applyWcState(data.open);
-            window.showSystemNotice((data.by || 'Ai đó') + (data.open ? ' vừa mở' : ' vừa đóng') + ' cửa nhà vệ sinh 🚪');
         });
 
         window.cafeNetwork.on('player_join', (data) => {
@@ -806,11 +779,6 @@ class CafeScene extends Phaser.Scene {
             return;
         }
 
-        if (this.currentInteractZone === 'wc') {
-            window.cafeNetwork.send({ type: 'wc_toggle', open: !window.wcOpen });
-            return;
-        }
-
         const reason = this.blockReason();
         if (reason) {
             window.showSystemNotice(reason);
@@ -976,8 +944,6 @@ class CafeScene extends Phaser.Scene {
         }
 
         const speed = 125;
-        const safeX = this.player.x;
-        const safeY = this.player.y;
         let vx = 0;
         let vy = 0;
         let direction = 'down';
@@ -1028,16 +994,6 @@ class CafeScene extends Phaser.Scene {
 
         this.player.setVelocity(vx, vy);
 
-        // Cửa WC đóng thì chặn lối vào (không dùng physics collider)
-        if (!window.wcOpen && this.wcDoorPoint) {
-            const doorDistance = Phaser.Math.Distance.Between(
-                this.player.x, this.player.y, this.wcDoorPoint.x, this.wcDoorPoint.y);
-            if (doorDistance < 26) {
-                this.player.setPosition(safeX, safeY);
-                this.player.setVelocity(0, 0);
-            }
-        }
-
         const isMoving = vx !== 0 || vy !== 0;
 
         if (isMoving) {
@@ -1070,9 +1026,6 @@ class CafeScene extends Phaser.Scene {
         } else if (window.guest && window.guest.dirty && this.nearWash()) {
             this.currentInteractZone = 'wash';
             promptText = "[E] / Chạm: Rửa tay ở lavabo 🧼";
-        } else if (this.nearWcDoor()) {
-            this.currentInteractZone = 'wc';
-            promptText = window.wcOpen ? "[E] / Chạm: Đóng cửa WC 🚪" : "[E] / Chạm: Mở cửa WC 🚪";
         } else if (this.npcPoint && Phaser.Math.Distance.Between(
             this.player.x, this.player.y, this.npcPoint.x, this.npcPoint.y) < 72) {
             if (blocked) {
