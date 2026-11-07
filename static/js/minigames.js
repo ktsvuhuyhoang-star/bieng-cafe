@@ -22,6 +22,14 @@
         toilet: {
             name: 'WC', icon: '🚽',
             hint: 'Giữ chuột hoặc Space để giữ thăng bằng. Giữ thanh trong vùng xanh khoảng 8 giây.'
+        },
+        matcha: {
+            name: 'Matcha latte', icon: '🍵',
+            hint: 'Bấm liên tục (hoặc giữ Space) để đánh trà cho tới khi bọt mịn.'
+        },
+        banana: {
+            name: 'Bánh chuối', icon: '🍌',
+            hint: 'Bấm đúng lúc lưỡi dao nằm trong vùng xanh để cắt — cần 3 lát.'
         }
     };
 
@@ -32,6 +40,7 @@
         return {
             key: key, t: 0, progress: 0, flow: 0.12, pressure: 0,
             needle: 0.5, velocity: 0,
+            taps: 0, lastTap: 0, knife: 0, knifeDir: 1, cuts: 0, zone: 0.5,
             drops: [], spawn: 0.4, hits: 0, misses: 0, finished: false, flash: 0
         };
     }
@@ -122,6 +131,70 @@
         ctx.fillText('Đạt: ' + s.hits + ' · Trượt: ' + s.misses, 20, 26);
     }
 
+    function drawMatcha(s) {
+        ctx.fillStyle = '#0f1a14';
+        ctx.fillRect(0, 0, W, H);
+        // bát trà
+        ctx.fillStyle = '#f1f5f9';
+        ctx.beginPath(); ctx.ellipse(210, 150, 84, 46, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#4d7c0f';
+        ctx.beginPath(); ctx.ellipse(210, 148, 70, 34, 0, 0, Math.PI * 2); ctx.fill();
+        // bọt mịn dần theo tiến độ
+        const foam = Math.round(s.progress / 8);
+        ctx.fillStyle = '#a3e635';
+        for (let i = 0; i < foam; i++) {
+            const angle = i * 2.399;
+            const radius = (i % 5) * 12 + 6;
+            ctx.beginPath();
+            ctx.arc(210 + Math.cos(angle) * radius, 148 + Math.sin(angle) * radius * 0.45, 2.4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        // chổi trà
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 4;
+        ctx.beginPath(); ctx.moveTo(210, 60); ctx.lineTo(210, 128); ctx.stroke();
+        ctx.strokeStyle = '#cbd5e1';
+        ctx.lineWidth = 2;
+        for (let i = -3; i <= 3; i++) {
+            ctx.beginPath(); ctx.moveTo(210, 118); ctx.lineTo(210 + i * 7, 140); ctx.stroke();
+        }
+        ctx.fillStyle = '#fef3c7';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Đánh trà: ' + Math.round(s.progress) + '%', 24, 26);
+        ctx.fillText('Số lần đánh: ' + s.taps, 24, 46);
+    }
+
+    function drawBanana(s) {
+        ctx.fillStyle = '#1a1208';
+        ctx.fillRect(0, 0, W, H);
+        // ổ bánh
+        ctx.fillStyle = '#b45309';
+        ctx.fillRect(70, 96, 280, 78);
+        ctx.fillStyle = '#d97706';
+        ctx.fillRect(78, 104, 264, 62);
+        // vùng cắt
+        ctx.fillStyle = 'rgba(34,197,94,0.30)';
+        ctx.fillRect(70 + s.zone * 280 - 12, 88, 24, 94);
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(70 + s.zone * 280 - 12, 88, 24, 94);
+        // dao
+        const knifeX = 70 + s.knife * 280;
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 3;
+        ctx.beginPath(); ctx.moveTo(knifeX, 74); ctx.lineTo(knifeX, 196); ctx.stroke();
+        // lát đã cắt
+        ctx.fillStyle = '#fbbf24';
+        for (let i = 0; i < s.cuts; i++) {
+            ctx.fillRect(84 + i * 22, 110, 14, 48);
+        }
+        ctx.fillStyle = '#fef3c7';
+        ctx.font = '13px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Lát đã cắt: ' + s.cuts + '/3', 20, 26);
+    }
+
     function drawToilet(s) {
         ctx.fillStyle = '#0f172a';
         ctx.fillRect(0, 0, W, H);
@@ -194,6 +267,13 @@
             s.progress += (inside ? 14 : -9) * dt;
             s.progress = Math.max(0, Math.min(100, s.progress));
             if (s.progress >= 100) finish(s, 'Xong rồi! Rửa tay rồi ra uống cà phê nhé 🚽🧼');
+        } else if (s.key === 'banana') {
+            s.knife += s.knifeDir * 0.85 * dt;
+            if (s.knife >= 1) { s.knife = 1; s.knifeDir = -1; }
+            if (s.knife <= 0) { s.knife = 0; s.knifeDir = 1; }
+            if (s.progress >= 100) finish(s, 'Ba lát bánh chuối xong rồi! Thơm nức mũi.');
+        } else if (s.key === 'matcha') {
+            if (s.progress >= 100) finish(s, 'Bọt trà mịn rồi! Ly Matcha latte đã xong.');
         }
     }
 
@@ -219,6 +299,8 @@
         if (mine.key === 'pourover') drawPourOver(mine);
         else if (mine.key === 'espresso') drawEspresso(mine);
         else if (mine.key === 'toilet') drawToilet(mine);
+        else if (mine.key === 'matcha') drawMatcha(mine);
+        else if (mine.key === 'banana') drawBanana(mine);
         else drawColdBrew(mine);
         if (barEl) barEl.style.width = Math.round(mine.progress) + '%';
         if (!mine.finished) {
@@ -264,6 +346,27 @@
 
     function press() {
         if (!mine || mine.finished) return;
+        if (mine.key === 'matcha') {
+            const now = performance.now();
+            if (now - (mine.lastTap || 0) < 70) return;
+            mine.lastTap = now;
+            mine.taps += 1;
+            mine.progress = Math.min(100, mine.progress + 100 / 26);
+            setStatus('Đang đánh trà… ' + Math.round(mine.progress) + '%');
+            return;
+        }
+        if (mine.key === 'banana') {
+            const distance = Math.abs(mine.knife - mine.zone);
+            if (distance < 0.09) {
+                mine.cuts += 1;
+                mine.progress = Math.min(100, mine.cuts * 33.4);
+                mine.zone = 0.18 + Math.random() * 0.64;
+                setStatus('Lát ' + mine.cuts + '/3 — canh lát tiếp theo!');
+            } else {
+                setStatus('Lệch rồi, canh lại nhé.');
+            }
+            return;
+        }
         if (mine.key === 'coldbrew') {
             const drop = mine.drops.find(function (d) { return !d.scored && d.y > 166 && d.y < 214; });
             if (drop) {

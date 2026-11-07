@@ -10,7 +10,9 @@ let gameInstance = null;
 const DRINK_MENU = [
     { key: 'pourover', icon: '🌊', name: 'Pour-over', desc: 'Rót tay chậm rãi, hương hoa quả thanh thoát.' },
     { key: 'espresso', icon: '⚡', name: 'Espresso', desc: 'Ép 9 bar, đậm đặc, lớp crema vàng óng.' },
-    { key: 'coldbrew', icon: '🧊', name: 'Cold brew', desc: 'Ủ lạnh 18 giờ, dịu ngọt, uống là mát.' }
+    { key: 'coldbrew', icon: '🧊', name: 'Cold brew', desc: 'Ủ lạnh 18 giờ, dịu ngọt, uống là mát.' },
+    { key: 'matcha', icon: '🍵', name: 'Matcha latte', desc: 'Đánh trà xanh mịn, sữa béo nhẹ, thơm dịu.' },
+    { key: 'banana', icon: '🍌', name: 'Bánh chuối', desc: 'Bánh chuối nướng nóng, cắt lát vừa ăn.' }
 ];
 
 // 1. Vào quán
@@ -138,7 +140,7 @@ window.getScene = function () {
 
 // 3. Khoá tiện ích khi chưa gửi xe
 window.utilitiesLocked = function () {
-    return !!(window.guest && !window.guest.parked);
+    return !!(window.guest && (!window.guest.parked || window.guest.dirty));
 };
 
 window.refreshUtilityLocks = function () {
@@ -150,9 +152,16 @@ window.refreshUtilityLocks = function () {
 };
 
 window.requireParking = function () {
-    if (!window.utilitiesLocked()) return false;
-    window.showSystemNotice('Bạn còn xe kìa, gửi xe trước nhé 🛵');
-    return true;
+    if (!window.guest) return false;
+    if (!window.guest.parked) {
+        window.showSystemNotice('Bạn còn xe kìa, gửi xe trước nhé 🛵');
+        return true;
+    }
+    if (window.guest.dirty) {
+        window.showSystemNotice('Tay còn bẩn — ra lavabo rửa tay trước nhé 🧼');
+        return true;
+    }
+    return false;
 };
 
 // 4. Modal đơn giản

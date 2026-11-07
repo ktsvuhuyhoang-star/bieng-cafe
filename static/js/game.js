@@ -77,6 +77,7 @@ const BIENG_BUNDLED_LAYOUT = {"schema":"bieng-layout","version":1,"exporter":"1.
             const poly=projectPoly(i,d.footprint),r=bounds(poly),c=center(poly),kind=d.kind;
             const tops=d.tops.map(f=>({outer:projectPoly(i,f.outer),holes:f.holes.map(h=>projectPoly(i,h))}));
             scene.mapDefinitionObjects.push({id:i.id,definition:d.name,kind,polygon:poly,transform:i.transform,bounds:r});
+            if(kind==='fixture'&&/lavabor/i.test(d.name)){(scene.washPoints=scene.washPoints||[]).push({x:c.x,y:c.y});}
             if(kind==='floor'){
                 for(const f of tops){fill(ctx,f.outer,'#ad7951',f.holes);fill(fc,f.outer,'#fff',f.holes);}
             }else if(kind==='wall'){
@@ -160,7 +161,7 @@ const BIENG_BUNDLED_LAYOUT = {"schema":"bieng-layout","version":1,"exporter":"1.
         scene.hoangBeu=scene.add.sprite(npc.x,npc.y,'hoang_beu').setDepth(20);
         const label=(x,y,text)=>scene.add.text(x,y,text,{fontSize:'10px',fontFamily:'sans-serif',color:'#fff3d4',stroke:'#29251c',strokeThickness:3}).setOrigin(.5).setDepth(21);
         label(npc.x,npc.y-28,'Hoàng Bệu');
-        const wc=doors.find(o=>/ve sinh/i.test(o.d.name));if(wc)label(wc.c.x,wc.r.y-35,'VỆ SINH');
+        const wc=doors.find(o=>/ve sinh/i.test(o.d.name));if(wc){label(wc.c.x,wc.r.y-35,'VỆ SINH');scene.wcDoorPoint={x:wc.c.x,y:wc.c.y};}
         scene.physics.world.setBounds(0,0,960,540);scene.syncedLayout=layout;
         api.current=layout;api.updateStatus();
         const clipped=scene.mapDefinitionObjects.filter(o=>o.kind!=='wall'&&(o.bounds.x<0||o.bounds.y<0||o.bounds.x+o.bounds.w>960||o.bounds.y+o.bounds.h>540));
@@ -271,6 +272,7 @@ class CafeScene extends Phaser.Scene {
         // 2. Build Cafe Floorplan according to the architectural layout
         this.buildArchitecturalMap();
         this.drawParking();
+        this.setupWcDoor();
 
         // 3. Create Local Player
         const profile = window.localPlayerProfile || {
@@ -494,6 +496,61 @@ class CafeScene extends Phaser.Scene {
             .catch(function () { /* không chặn game nếu health lỗi */ });
     }
 
+    /** Cửa WC: đóng thì chặn lối vào; nhiều người vẫn dùng chung bên trong được. */
+    setupWcDoor() {
+        const point = this.wcDoorPoint || { x: 900, y: 200 };
+        this.wcBlocker = this.add.zone(point.x, point.y, 30, 30);
+        this.physics.add.existing(this.wcBlocker, true);
+        this.physics.add.collider(this.player, this.wcBlocker);
+        this.wcSign = this.add.text(point.x, point.y - 26, '🚪 WC', {
+            fontFamily: 'sans-serif', fontSize: '10px', color: '#f8fafc',
+            stroke: '#1e293b', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(30);
+        this.applyWcState(window.wcOpen !== false);
+    }
+
+    applyWcState(open) {
+        window.wcOpen = !!open;
+        if (this.wcBlocker && this.wcBlocker.body) this.wcBlocker.body.enable = !window.wcOpen;
+        if (this.wcSign) this.wcSign.setText(window.wcOpen ? '🚪 WC: mở' : '🚪 WC: đóng');
+    }
+
+    nearWcDoor() {
+        if (!this.wcDoorPoint) return false;
+        return Phaser.Math.Distance.Between(this.player.x, this.player.y,
+            this.wcDoorPoint.x, this.wcDoorPoint.y) < 44;
+    }
+
+    nearWash() {
+        const points = this.washPoints || [];
+        return points.some((p) => Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < 42);
+    }
+
+    washHands() {
+        if (!window.guest) return;
+        if (!window.guest.dirty) {
+            window.showSystemNotice('Tay đang sạch rồi 🙂');
+            return;
+        }
+        window.guest.dirty = false;
+        if (window.refreshUtilityLocks) window.refreshUtilityLocks();
+        if (window.cafeAudio) window.cafeAudio.playDing();
+        window.updatePlayerStatus('Đang dạo quanh quán');
+        window.showSystemNotice('Đã rửa tay 🧼 Sạch sẽ rồi, làm gì cũng được!');
+        if (window.BiengDuel) window.BiengDuel.addBadge('🧼');
+    }
+
+    /** Lý do đang bị khoá tiện ích (chưa gửi xe / tay bẩn). */
+    blockReason() {
+        if (this.needsParking()) {
+            return 'Bạn còn xe kìa — đi vào bãi giữ xe bên trái (biển P) để gửi trước nhé 🅿️';
+        }
+        if (window.guest && window.guest.dirty) {
+            return 'Tay còn bẩn — ra lavabo rửa tay rồi hẵng làm tiếp nhé 🧼';
+        }
+        return '';
+    }
+
     createAnimations(textureKey) {
         if (this.anims.exists(`${textureKey}_down`)) return;
 
@@ -533,6 +590,12 @@ class CafeScene extends Phaser.Scene {
             if (data.jukebox) {
                 window.cafeAudio.setTrack(data.jukebox.current_track || 0);
             }
+            if (typeof data.wc_open === 'boolean') this.applyWcState(data.wc_open);
+        });
+
+        window.cafeNetwork.on('wc_state', (data) => {
+            this.applyWcState(data.open);
+            window.showSystemNotice((data.by || 'Ai đó') + (data.open ? ' vừa mở' : ' vừa đóng') + ' cửa nhà vệ sinh 🚪');
         });
 
         window.cafeNetwork.on('player_join', (data) => {
@@ -734,9 +797,19 @@ class CafeScene extends Phaser.Scene {
             return;
         }
 
-        if (this.needsParking()) {
-            // Chưa gửi xe thì không ngồi / không gọi món được
-            window.showSystemNotice('Bạn còn xe kìa — đi vào bãi giữ xe bên trái (biển P) để gửi trước nhé 🅿️');
+        if (this.currentInteractZone === 'wash') {
+            this.washHands();
+            return;
+        }
+
+        if (this.currentInteractZone === 'wc') {
+            window.cafeNetwork.send({ type: 'wc_toggle', open: !window.wcOpen });
+            return;
+        }
+
+        const reason = this.blockReason();
+        if (reason) {
+            window.showSystemNotice(reason);
             return;
         }
 
@@ -806,7 +879,10 @@ class CafeScene extends Phaser.Scene {
             if (toilet) {
                 if (window.BiengMini) {
                     window.BiengMini.open('toilet', function () {
-                        window.showSystemNotice('Xong rồi! Rửa tay rồi ra uống cà phê nhé 🚽🧼');
+                        if (window.guest) window.guest.dirty = true;
+                        if (window.refreshUtilityLocks) window.refreshUtilityLocks();
+                        window.updatePlayerStatus('Tay bẩn 🧼 — ra lavabo rửa tay');
+                        window.showSystemNotice('Xong rồi! Nhớ ra lavabo rửa tay trước khi làm việc khác nhé 🧼');
                     });
                 }
             } else {
@@ -841,7 +917,9 @@ class CafeScene extends Phaser.Scene {
 
     holdDrink(itemName) {
         this.heldItemName = itemName;
-        this.heldItemSprite.setVisible(true).setTexture('item_coffee');
+        const texture = /matcha/i.test(itemName) ? 'item_matcha'
+            : /bánh chuối/i.test(itemName) ? 'item_banana' : 'item_coffee';
+        this.heldItemSprite.setVisible(true).setTexture(texture);
         window.cafeAudio.playDing();
         window.updatePlayerStatus(`Đang cầm: ${itemName} ☕`);
     }
@@ -962,13 +1040,20 @@ class CafeScene extends Phaser.Scene {
         this.currentInteractZone = null;
         this.duelTarget = null;
         const inParking = this.needsParking() && this.inParkingZone();
+        const blocked = this.blockReason();
         if (inParking) {
             // Bước vào bãi là gửi xe luôn, không cần bấm nút
             this.parkLocally();
             promptText = "Đã gửi xe 🅿️";
+        } else if (window.guest && window.guest.dirty && this.nearWash()) {
+            this.currentInteractZone = 'wash';
+            promptText = "[E] / Chạm: Rửa tay ở lavabo 🧼";
+        } else if (this.nearWcDoor()) {
+            this.currentInteractZone = 'wc';
+            promptText = window.wcOpen ? "[E] / Chạm: Đóng cửa WC 🚪" : "[E] / Chạm: Mở cửa WC 🚪";
         } else if (Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(), this.orderZone.getBounds())) {
-            if (this.needsParking()) {
-                promptText = "Bạn còn xe kìa, gửi xe trước nhé 🛵";
+            if (blocked) {
+                promptText = blocked;
             } else {
                 this.currentInteractZone = 'order';
                 promptText = "[E] / Chạm: Quầy pha chế — chọn món ☕";
@@ -976,14 +1061,14 @@ class CafeScene extends Phaser.Scene {
         } else {
             const nearChair = this.findNearestChair();
             if (nearChair) {
-                if (this.needsParking()) {
-                    promptText = "Bạn còn xe kìa, gửi xe trước nhé 🛵";
+                if (blocked) {
+                    promptText = blocked;
                 } else {
                     promptText = "[E] / Chạm: Ngồi xuống " + (nearChair.seatKind === 'bồn cầu' ? "🚽" : nearChair.seatKind === 'sofa' ? "🛋️" : "🪑");
                 }
             } else {
                 const opponent = this.nearestPlayer(80);
-                if (opponent && !this.needsParking() && !(window.BiengDuel && window.BiengDuel.busy())) {
+                if (opponent && !blocked && !(window.BiengDuel && window.BiengDuel.busy())) {
                     this.duelTarget = opponent;
                     promptText = "[E] / Chạm: Thách đấu " + opponent.name + " ⚔️";
                 }

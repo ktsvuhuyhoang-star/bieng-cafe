@@ -451,6 +451,24 @@ const PixelArt = {
         this.drawRect(kctx, 4, 6, 8, 5, '#d97706');
         this.drawRect(kctx, 6, 5, 4, 2, '#f59e0b');
         scene.textures.addCanvas('item_croissant', cake);
+
+        const matcha = document.createElement('canvas');
+        matcha.width = 16;
+        matcha.height = 16;
+        const mctx = matcha.getContext('2d');
+        this.drawRect(mctx, 3, 9, 10, 6, '#e2e8f0');
+        this.drawRect(mctx, 4, 8, 8, 3, '#65a30d');
+        this.drawRect(mctx, 6, 6, 4, 2, '#86efac');
+        scene.textures.addCanvas('item_matcha', matcha);
+
+        const banana = document.createElement('canvas');
+        banana.width = 16;
+        banana.height = 16;
+        const bctx = banana.getContext('2d');
+        this.drawRect(bctx, 2, 8, 12, 6, '#b45309');
+        this.drawRect(bctx, 3, 7, 10, 3, '#d97706');
+        this.drawRect(bctx, 5, 6, 3, 2, '#fbbf24');
+        scene.textures.addCanvas('item_banana', banana);
     },
 
     // 16. Phương tiện của khách — cùng khung 24×16, khác hình/màu để phân biệt
