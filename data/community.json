@@ -1,0 +1,41 @@
+{
+  "schema": "bieng-community",
+  "version": 1,
+  "posts": [
+    {
+      "id": "P-2",
+      "title": "Chào mừng tới Bieng Cafe ☕",
+      "body": "Quán mở cửa tự do. Bạn có thể chọn xe, gửi xe ở bãi bên trái, ngồi ghế để gọi món và tự pha 3 món: Pour-over, Espresso, Cold brew.\n\nChúc bạn có một buổi chiều thư giãn!",
+      "link": "",
+      "pinned": true,
+      "author": "Quản trị viên",
+      "created_at": "2026-11-07T09:00:00",
+      "updated_at": "2026-11-07T09:00:00"
+    },
+    {
+      "id": "P-1",
+      "title": "Bản test — mọi người cứ thử hết tính năng",
+      "body": "Chat realtime, bảng tin, lời nhắn, cờ vua, jukebox và mini game đều đã bật. Nếu thấy lỗi, nhắn vào khung chat giúp quán nhé.",
+      "link": "",
+      "pinned": false,
+      "author": "Quản trị viên",
+      "created_at": "2026-11-07T08:55:00",
+      "updated_at": "2026-11-07T08:55:00"
+    }
+  ],
+  "messages": [
+    {
+      "id": "M-2",
+      "name": "Khách ghé chơi",
+      "text": "Quán dễ thương, nhạc hay, mà bồn cầu khó giữ thăng bằng quá 🚽",
+      "created_at": "2026-11-07T09:02:00"
+    },
+    {
+      "id": "M-1",
+      "name": "Bình Yên",
+      "text": "Lần đầu ghé quán, thích nhất là ngồi sofa ngắm phố mưa.",
+      "created_at": "2026-11-07T09:01:00"
+    }
+  ],
+  "muted": {}
+}

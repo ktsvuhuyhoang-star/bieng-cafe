@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>☕ Bieng Cafe 2D</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2222%22 font-size=%2224%22>☕</text></svg>">
+</head>
+<body>
+
+    <!-- Main Game Wrapper -->
+    <div id="game-wrapper">
+        <div id="game-container"></div>
+
+        <!-- Top HUD -->
+        <div id="hud-container" class="hidden">
+            <div class="hud-pill">
+                <span>☕</span>
+                <strong id="hud-player-name">Khách</strong>
+                <span style="color:#94a3b8">|</span>
+                <span id="hud-player-status" style="color:#fbbf24">Đang dạo quán</span>
+            </div>
+            <div class="hud-actions">
+                <button class="hud-btn" id="btn-drinks">🍹 Quầy pha chế</button>
+                <button class="hud-btn" id="btn-news">📌 Bảng tin</button>
+                <button class="hud-btn" id="btn-board">💬 Lời nhắn</button>
+                <button class="hud-btn" id="btn-jukebox">🎵 Jukebox</button>
+                <button class="hud-btn" id="btn-study">⏱️ Học tập</button>
+                <button class="hud-btn" id="btn-chess">♞ Cờ vua</button>
+                <button class="hud-btn hud-btn-admin" id="btn-admin">🔐 Quản trị</button>
+            </div>
+        </div>
+
+        <!-- Center Notification & Interaction Prompt -->
+        <div id="system-notice" class="hidden"></div>
+        <div id="interact-prompt" class="hidden">[E] Tương tác</div>
+
+        <!-- Chat Overlay -->
+        <div id="chat-container">
+            <div id="chat-messages">
+                <div class="chat-line"><span class="chat-sender">🔔 Bieng Cafe:</span> Chào mừng bạn ghé quán cà phê của Anh Hoàng Bệu!</div>
+            </div>
+            <div id="chat-input-bar">
+                <input type="text" id="chat-input" placeholder="Nhập tin nhắn..." maxlength="80">
+                <button id="chat-send-btn">Gửi</button>
+            </div>
+        </div>
+
+        <!-- Mobile Touch Controls -->
+        <div id="mobile-controls">
+            <div class="dpad">
+                <button class="dpad-btn" id="dpad-up">▲</button>
+                <button class="dpad-btn" id="dpad-left">◀</button>
+                <button class="dpad-btn" id="dpad-right">▶</button>
+                <button class="dpad-btn" id="dpad-down">▼</button>
+            </div>
+            <button id="mobile-action-btn">E<br><span style="font-size:10px;">Chạm</span></button>
+        </div>
+
+        <!-- Welcome & Character Customizer Modal -->
+        <div id="entry-modal" class="modal-overlay">
+            <div class="modal-content">
+                <h2 class="modal-title">☕ Chào mừng đến Bieng Cafe</h2>
+                <p style="font-size:13px; color:#cbd5e1; margin-bottom:16px;">
+                    Không gian thư giãn của <strong>Anh Hoàng Bệu</strong> với âm nhạc nhẹ nhàng, quầy pha chế thơm nức mùi cà phê và góc ngồi chill ngắm phố mưa.
+                </p>
+
+                <div class="form-group">
+                    <label>Tên của bạn trong quán:</label>
+                    <input type="text" id="player-name-input" value="Bình Yên" maxlength="20">
+                </div>
+
+                <div class="form-group">
+                    <label>Màu áo yêu thích:</label>
+                    <div class="outfit-row">
+                        <div class="outfit-color selected" data-color="#d97706" style="background:#d97706" title="Cam Caramel"></div>
+                        <div class="outfit-color" data-color="#2563eb" style="background:#2563eb" title="Xanh Denim"></div>
+                        <div class="outfit-color" data-color="#16a34a" style="background:#16a34a" title="Xanh Rêu"></div>
+                        <div class="outfit-color" data-color="#dc2626" style="background:#dc2626" title="Đỏ Mận"></div>
+                        <div class="outfit-color" data-color="#7c3aed" style="background:#7c3aed" title="Tím Lavender"></div>
+                        <div class="outfit-color" data-color="#475569" style="background:#475569" title="Xám Tối Giản"></div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Bạn đến quán bằng gì?</label>
+                    <div class="vehicle-row">
+                        <button type="button" class="vehicle-option" data-vehicle="walk">🚶<span>Đi bộ</span></button>
+                        <button type="button" class="vehicle-option" data-vehicle="bike">🚲<span>Xe đạp</span></button>
+                        <button type="button" class="vehicle-option selected" data-vehicle="motorbike">🛵<span>Xe máy</span></button>
+                        <button type="button" class="vehicle-option" data-vehicle="car">🚗<span>Ô tô</span></button>
+                    </div>
+                    <p class="vehicle-hint">Đi bộ thì vào quán ngay. Có xe thì gửi ở bãi bên trái (biển P) trước khi gọi món hoặc ngồi ghế.</p>
+                </div>
+
+                <button class="primary-btn" id="enter-btn">Bước Vào Quán Cafe 🚪</button>
+            </div>
+        </div>
+
+        <!-- Drink Menu (3 món, mỗi món mở mini game pha chế) -->
+        <div id="drinks-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close" data-close="drinks-modal">&times;</button>
+                <h3 class="modal-title">🍹 Quầy Pha Chế Của Anh Hoàng Bệu</h3>
+                <p class="modal-hint">Chọn một món để tự tay pha. Xong xuôi bạn sẽ cầm ly cà phê đi dạo trong quán.</p>
+                <div class="drink-grid" id="drink-grid"></div>
+            </div>
+        </div>
+
+        <!-- Mini game pha chế -->
+        <div id="minigame-modal" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <button class="modal-close" data-close="minigame-modal">&times;</button>
+                <h3 class="modal-title" id="minigame-title">Pha chế</h3>
+                <p class="modal-hint" id="minigame-hint">Giữ chuột hoặc phím Space để pha.</p>
+                <canvas id="minigame-canvas" width="420" height="240"></canvas>
+                <div class="meter"><div class="meter-fill" id="minigame-progress" style="width:0%"></div></div>
+                <p class="mini-status" id="minigame-status">Sẵn sàng.</p>
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="minigame-restart">Làm lại 🔄</button>
+                    <button class="timer-btn" id="minigame-close">Đóng</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bảng tin quán -->
+        <div id="news-modal" class="modal-overlay hidden">
+            <div class="modal-content wide">
+                <button class="modal-close" data-close="news-modal">&times;</button>
+                <div class="board-head">
+                    <h3 class="modal-title">📌 Bảng Tin Quán</h3>
+                    <button class="hud-btn admin-only" id="news-new">＋ Bài mới</button>
+                </div>
+
+                <div id="post-editor" class="hidden">
+                    <div class="form-group">
+                        <label>Tiêu đề</label>
+                        <input type="text" id="post-title" maxlength="140" placeholder="Thông báo của quán...">
+                    </div>
+                    <div class="form-group">
+                        <label>Nội dung</label>
+                        <textarea id="post-body" rows="4" maxlength="2000" placeholder="Vài dòng chia sẻ với khách..."></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Link đính kèm (chỉ http/https)</label>
+                        <input type="url" id="post-link" maxlength="500" placeholder="https://...">
+                    </div>
+                    <label class="check-row"><input type="checkbox" id="post-pinned"> Ghim bài này lên đầu</label>
+                    <div class="mini-actions">
+                        <button class="timer-btn secondary" id="post-cancel">Huỷ</button>
+                        <button class="primary-btn" id="post-save" style="margin-top:0; flex:1;">Lưu bài</button>
+                    </div>
+                </div>
+
+                <div id="news-list" class="board-list">
+                    <p class="board-empty">Đang tải bảng tin…</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bảng lời nhắn công khai -->
+        <div id="board-modal" class="modal-overlay hidden">
+            <div class="modal-content wide">
+                <button class="modal-close" data-close="board-modal">&times;</button>
+                <h3 class="modal-title">💬 Lời Nhắn Công Khai</h3>
+                <p class="modal-hint">Ai cũng đọc được. Quản trị viên có thể xoá lời nhắn không phù hợp.</p>
+                <div class="form-group">
+                    <label>Lời nhắn của bạn</label>
+                    <textarea id="message-input" rows="2" maxlength="300" placeholder="Để lại vài dòng cho quán..."></textarea>
+                </div>
+                <button class="primary-btn" id="message-send">Gửi lời nhắn 💌</button>
+                <div id="message-list" class="board-list">
+                    <p class="board-empty">Đang tải lời nhắn…</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Jukebox Modal -->
+        <div id="jukebox-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close" data-close="jukebox-modal">&times;</button>
+                <h3 class="modal-title">🎵 Máy Phát Nhạc Quán (Jukebox)</h3>
+                <p style="font-size:12px; color:#94a3b8;">Âm nhạc được đồng bộ cho mọi người cùng quán cùng nghe.</p>
+
+                <div class="track-list">
+                    <button class="track-btn active">1. 🌧️ Lofi Cafe Rain (Thư giãn, ấm cúng)</button>
+                    <button class="track-btn">2. ☕ Midnight Espresso (Jazz Piano chậm rãi)</button>
+                    <button class="track-btn">3. ☀️ Morning Sunshine (Chill Acoustic tươi sáng)</button>
+                </div>
+
+                <div class="form-group" style="margin-top:14px;">
+                    <label>Âm lượng nhạc Lofi:</label>
+                    <input type="range" id="music-vol" min="0" max="0.8" step="0.05" value="0.3">
+                </div>
+                <div class="form-group">
+                    <label>Âm lượng tiếng mưa rơi:</label>
+                    <input type="range" id="rain-vol" min="0" max="0.8" step="0.05" value="0.25">
+                </div>
+            </div>
+        </div>
+
+        <!-- Study Corner & Pomodoro Modal -->
+        <div id="study-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close" data-close="study-modal">&times;</button>
+                <h3 class="modal-title">📚 Góc Học Tập & Tập Trung</h3>
+
+                <div class="timer-box">
+                    <div class="timer-digits" id="pomodoro-time">25:00</div>
+                    <div class="timer-controls">
+                        <button class="timer-btn" id="pomodoro-start">Bắt đầu ⏱️</button>
+                        <button class="timer-btn secondary" id="pomodoro-reset">Đặt lại 🔄</button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Sổ tay ghi chú (tự động lưu):</label>
+                    <textarea id="study-notes" rows="4" placeholder="Ghi lại việc cần làm hoặc suy nghĩ lúc ngồi tại quán..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cổng mật khẩu quản trị -->
+        <div id="admin-gate" class="modal-overlay hidden">
+            <div class="modal-content">
+                <button class="modal-close" data-close="admin-gate">&times;</button>
+                <h3 class="modal-title">🔐 Khu Quản Trị</h3>
+                <p class="modal-hint">Nhập mật khẩu quản trị để đăng bài, xoá nội dung, ghim, mute và xuất bản mặt bằng.</p>
+                <div class="form-group">
+                    <label>Mật khẩu</label>
+                    <input type="password" id="admin-password" maxlength="64" placeholder="••••••••">
+                </div>
+                <button class="primary-btn" id="admin-login">Vào khu quản trị</button>
+                <p class="mini-status" id="admin-gate-status"></p>
+            </div>
+        </div>
+
+        <!-- Bảng quản trị -->
+        <div id="admin-modal" class="modal-overlay hidden">
+            <div class="modal-content wide">
+                <button class="modal-close" data-close="admin-modal">&times;</button>
+                <h3 class="modal-title">🛠️ Bảng Quản Trị</h3>
+                <p class="modal-hint">Mọi thao tác ghi/xoá đều được máy chủ kiểm tra mật khẩu.</p>
+
+                <div class="admin-block">
+                    <strong>Mặt bằng quán</strong>
+                    <p class="mini-status" id="layout-source">Chưa tải.</p>
+                    <div class="mini-actions">
+                        <button class="timer-btn" id="layout-publish">Xuất bản mặt bằng đang dùng 🌍</button>
+                        <button class="timer-btn secondary" id="layout-clear">Bỏ bản riêng trên máy này</button>
+                    </div>
+                    <p class="mini-status" id="layout-status"></p>
+                </div>
+
+                <div class="admin-block">
+                    <strong>Khoá chat người chơi</strong>
+                    <p class="mini-status">Người bị khoá vẫn đi lại được, chỉ không gửi tin nhắn được nữa.</p>
+                    <div id="mute-list" class="mute-list"></div>
+                    <div class="mini-actions">
+                        <input type="text" id="mute-name" maxlength="20" placeholder="Tên người chơi..." style="flex:1;">
+                        <button class="timer-btn" id="mute-add">Khoá</button>
+                        <button class="timer-btn secondary" id="mute-remove">Mở</button>
+                    </div>
+                    <p class="mini-status" id="mute-status"></p>
+                </div>
+
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="admin-logout">Đăng xuất quản trị</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Cờ vua -->
+        <div id="chess-modal" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <button class="modal-close" data-close="chess-modal">&times;</button>
+                <h3 class="modal-title">♞ Cờ Vua</h3>
+                <p class="modal-hint">Hai người chơi chung một máy. Trắng đi trước; bấm quân để xem nước hợp lệ. Có nhập thành, bắt tốt qua đường và phong cấp (tự phong Hậu).</p>
+                <canvas id="chess-canvas" width="400" height="400"></canvas>
+                <p class="mini-status" id="chess-status">Lượt của Trắng.</p>
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="chess-undo">Đi lại ↩️</button>
+                    <button class="timer-btn" id="chess-new">Ván mới 🔄</button>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts -->
+    <script src="/static/lib/phaser.min.js"></script>
+    <script src="/static/js/assets.js"></script>
+    <script src="/static/js/audio.js"></script>
+    <script src="/static/js/network.js"></script>
+    <script src="/static/js/game.js"></script>
+    <script src="/static/js/ui.js"></script>
+    <script src="/static/js/minigames.js"></script>
+    <script src="/static/js/community.js"></script>
+    <script src="/static/js/chess-rules.js"></script>
+    <script src="/static/js/chess.js"></script>
+</body>
+</html>
