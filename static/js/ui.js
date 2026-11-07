@@ -12,7 +12,8 @@ const DRINK_MENU = [
     { key: 'espresso', icon: '⚡', name: 'Espresso', desc: 'Ép 9 bar, đậm đặc, lớp crema vàng óng.' },
     { key: 'coldbrew', icon: '🧊', name: 'Cold brew', desc: 'Ủ lạnh 18 giờ, dịu ngọt, uống là mát.' },
     { key: 'matcha', icon: '🍵', name: 'Matcha latte', desc: 'Đánh trà xanh mịn, sữa béo nhẹ, thơm dịu.' },
-    { key: 'banana', icon: '🍌', name: 'Bánh chuối', desc: 'Bánh chuối nướng nóng, cắt lát vừa ăn.' }
+    { key: 'banana', icon: '🍌', name: 'Bánh chuối', desc: 'Bánh chuối nướng nóng, cắt lát vừa ăn.' },
+    { key: 'smoke', icon: '🚬', name: 'Hút thuốc', desc: 'Chỉ hút được ở khu hút thuốc ngoài cửa quán.' }
 ];
 
 // 1. Vào quán
@@ -223,6 +224,10 @@ window.closeMiniGame = function () {
 };
 
 function startDrink(drink) {
+    if (drink.key === 'smoke' && !window.smokingSpotNear) {
+        window.showSystemNotice('🚬 Hút thuốc phải ra khu hút thuốc ở ngoài cửa quán nhé!');
+        return;
+    }
     window.toggleDrinksModal(false);
     if (!window.BiengMini) {
         window.showSystemNotice('Quầy pha chế chưa sẵn sàng.');
@@ -230,6 +235,12 @@ function startDrink(drink) {
     }
     window.BiengMini.open(drink.key, function () {
         const scene = window.getScene();
+        if (drink.key === 'smoke') {
+            window.updatePlayerStatus('Vừa hút thuốc 🚬');
+            window.showSystemNotice('🚬 Xong một điếu. Nhớ đứng ngoài này hút thôi nhé!');
+            if (window.BiengDuel) window.BiengDuel.addBadge('🚬');
+            return;
+        }
         if (scene) scene.holdDrink(drink.name);
         if (window.cafeNetwork) window.cafeNetwork.send({ type: 'drink_done', item: drink.name });
         window.showSystemNotice('☕ Xong rồi! Bạn đang cầm ly ' + drink.name + '.');

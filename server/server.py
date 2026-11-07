@@ -1,4 +1,4 @@
-﻿"""Bieng Cafe 2D - quán cà phê 2D nhiều người chơi (bản 3.0).
+"""Bieng Cafe 2D - quán cà phê 2D nhiều người chơi (bản 3.0).
 
 Không còn đơn hàng thật, trạng thái đơn hay màn hình quầy bar.
 Có: không gian quán, chat realtime, bảng tin + lời nhắn dùng chung,
@@ -39,11 +39,12 @@ VERSION = '3.1'
 PROJECT_ID = hashlib.sha256(str(ROOT).casefold().encode()).hexdigest()[:20]
 COLORS = {'shirt': '#d97706', 'hair': '#451a03', 'skin': '#fed7aa', 'pants': '#1e293b'}
 VEHICLES = ('walk', 'bike', 'motorbike', 'car')
-DUEL_GAMES = ('tug', 'rps')
+DUEL_GAMES = ('tug', 'rps', 'xoxo')
 DUEL_TUG_SECONDS = 8
 DUEL_INVITE_SECONDS = 20
 DUEL_MAX_DISTANCE = 140
 RPS_BEATS = {'rock': 'scissors', 'scissors': 'paper', 'paper': 'rock'}
+XO_LINES = ((0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6))
 BADGES = ('🏆', '✌️', '☕', '🧼', '🚪', '🌟')
 
 ADMIN_PASSWORD = '20101995'
@@ -327,7 +328,9 @@ class Cafe:
                 'names': {pid: me['name'], target: other['name']},
                 'state': 'pending', 'a_taps': 0, 'b_taps': 0,
                 'a_choice': None, 'b_choice': None,
-                'score': {pid: 0, target: 0}, 'round': 1}
+                'score': {pid: 0, target: 0}, 'round': 1,
+                'board': [''] * 9, 'turn': 'a'}
+
         self.duels[duel['id']] = duel
         await self.send_to(target, {'type': 'duel_invite', 'id': duel['id'], 'game': game,
                                     'from': pid, 'from_name': me['name']})
@@ -353,6 +356,7 @@ class Cafe:
             self.spawn(self._finish_tug(duel['id']))
         payload = {'type': 'duel_start', 'id': duel['id'], 'game': duel['game'],
                    'a': duel['a'], 'b': duel['b'], 'names': duel['names'],
+                   'board': duel['board'], 'turn': duel['turn'],
                    'seconds': DUEL_TUG_SECONDS}
         await self.send_to(duel['a'], payload)
         await self.send_to(duel['b'], payload)
@@ -369,6 +373,43 @@ class Cafe:
             return
         payload = {'type': 'duel_progress', 'id': duel['id'],
                    'a_taps': duel['a_taps'], 'b_taps': duel['b_taps']}
+        await self.send_to(duel['a'], payload)
+        await self.send_to(duel['b'], payload)
+
+    async def duel_move(self, ws, pid, data):
+        duel = self.duels.get(text(data.get('id'), 20))
+        if not duel or duel['state'] != 'playing' or duel['game'] != 'xoxo':
+            return
+        try:
+            cell = int(data.get('cell'))
+        except (TypeError, ValueError):
+            return
+        if cell < 0 or cell > 8 or duel['board'][cell]:
+            return
+        turn_pid = duel['a'] if duel['turn'] == 'a' else duel['b']
+        if pid != turn_pid:
+            return
+        mark = 'X' if pid == duel['a'] else 'O'
+        duel['board'][cell] = mark
+        line = None
+        for combo in XO_LINES:
+            if all(duel['board'][i] == mark for i in combo):
+                line = list(combo)
+                break
+        payload = {'type': 'duel_board', 'id': duel['id'], 'board': duel['board'],
+                   'turn': duel['turn'], 'winner': None, 'line': None}
+        if line:
+            payload['winner'] = pid
+            payload['line'] = line
+            await self.send_to(duel['a'], payload)
+            await self.send_to(duel['b'], payload)
+            return await self._finish_duel(duel, pid, 'line')
+        if all(duel['board']):
+            await self.send_to(duel['a'], payload)
+            await self.send_to(duel['b'], payload)
+            return await self._finish_duel(duel, None, 'draw')
+        duel['turn'] = 'b' if duel['turn'] == 'a' else 'a'
+        payload['turn'] = duel['turn']
         await self.send_to(duel['a'], payload)
         await self.send_to(duel['b'], payload)
 
@@ -510,6 +551,8 @@ class Cafe:
                         await self.duel_tap(ws, pid, data)
                     elif event == 'duel_rps':
                         await self.duel_rps(ws, pid, data)
+                    elif event == 'duel_move':
+                        await self.duel_move(ws, pid, data)
                     elif event == 'chat' and pid in self.players:
                         message = text(data.get('text'), 500).strip()
                         if not message:

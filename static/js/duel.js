@@ -13,7 +13,8 @@
         playing: false, finished: false, tapsMe: 0, tapsThem: 0,
         scoreMe: 0, scoreThem: 0, round: 1, endsAt: 0, seconds: 8,
         myChoice: null, theirChoice: null, pendingInvite: null, lastTarget: null, raf: 0,
-        npc: false, botTimer: 0, localEndTimer: 0
+        npc: false, botTimer: 0, localEndTimer: 0,
+        board: ['', '', '', '', '', '', '', '', ''], turn: 'a', myMark: 'X'
     };
 
     function $(id) { return document.getElementById(id); }
@@ -143,14 +144,22 @@
         state.endsAt = Date.now() + state.seconds * 1000;
 
         $('duel-invite').classList.add('hidden');
-        $('duel-title').textContent = (state.game === 'tug' ? '🪢 Kéo co' : '✌️ Oẳn tù tì') + ' với ' + state.opponentName;
-        $('duel-hint').textContent = state.game === 'tug'
-            ? 'Chạm liên tục vào ô bên dưới để kéo ly cà phê về phía bạn!'
-            : 'Bấm ✊ ✋ ✌️ — ai thắng 2 ván trước thì thắng.';
+        const titles = { tug: '🪢 Kéo co', rps: '✌️ Oẳn tù tì', xoxo: '⭕ X-O' };
+        $('duel-title').textContent = (titles[state.game] || 'Đấu') + ' với ' + state.opponentName;
+        if (state.game === 'xoxo') {
+            state.board = (data.board || ['', '', '', '', '', '', '', '', '']).slice();
+            state.turn = data.turn || 'a';
+            state.myMark = state.role === 'a' ? 'X' : 'O';
+            $('duel-hint').textContent = 'Bấm vào ô trống để đánh dấu. Ai có 3 ô liền nhau (hoặc chéo) thì thắng.';
+        } else {
+            $('duel-hint').textContent = state.game === 'tug'
+                ? 'Chạm liên tục vào ô bên dưới để kéo ly cà phê về phía bạn!'
+                : 'Bấm ✊ ✋ ✌️ — ai thắng 2 ván trước thì thắng.';
+        }
         $('duel-modal').classList.remove('hidden');
         $('duel-rps').classList.toggle('hidden', state.game !== 'rps');
         $('duel-rematch').classList.add('hidden');
-        setStatus(state.game === 'tug' ? 'Chuẩn bị…' : 'Chọn tay của bạn');
+        setStatus(state.game === 'tug' ? 'Chuẩn bị…' : (state.game === 'xoxo' ? 'Lượt của bạn' : 'Chọn tay của bạn'));
         drawLoop();
     }
 
@@ -184,6 +193,63 @@
         $('duel-rematch').classList.remove('hidden');
     }
 
+    // ---------- X-O ----------
+    function xoLines() {
+        return [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+    }
+    function xoCheck(board, mark) {
+        const lines = xoLines();
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].every(function (cell) { return board[cell] === mark; })) return lines[i];
+        }
+        return null;
+    }
+    function myTurn() {
+        return (state.myMark === 'X' && state.turn === 'a') || (state.myMark === 'O' && state.turn === 'b');
+    }
+    function handleXoClick(event) {
+        if (!state.playing || state.game !== 'xoxo') return;
+        if (!myTurn()) { setStatus('Chờ đối thủ…'); return; }
+        const canvas = canvasEl();
+        const rect = canvas.getBoundingClientRect();
+        const px = (event.clientX - rect.left) * (canvas.width / rect.width);
+        const py = (event.clientY - rect.top) * (canvas.height / rect.height);
+        const size = 180, left = (canvas.width - size) / 2 - 40, top = 20, cell = size / 3;
+        if (px < left || py < top || px > left + size || py > top + size) return;
+        const index = Math.floor((py - top) / cell) * 3 + Math.floor((px - left) / cell);
+        if (state.board[index]) return;
+        if (state.npc) return npcXoMove(index);
+        window.cafeNetwork.send({ type: 'duel_move', id: state.id, cell: index });
+    }
+    function npcXoMove(index) {
+        state.board[index] = state.myMark;
+        if (xoCheck(state.board, state.myMark)) return finishXo(true);
+        state.turn = state.turn === 'a' ? 'b' : 'a';
+        setStatus('Hoàng Bệu đang suy nghĩ…');
+        draw();
+        setTimeout(function () {
+            if (!state.playing) return;
+            const empty = [];
+            state.board.forEach(function (mark, i) { if (!mark) empty.push(i); });
+            if (!empty.length) return finishXo(null);
+            const pick = empty[Math.floor(Math.random() * empty.length)];
+            const opponentMark = state.myMark === 'X' ? 'O' : 'X';
+            state.board[pick] = opponentMark;
+            if (xoCheck(state.board, opponentMark)) return finishXo(false);
+            if (state.board.every(Boolean)) return finishXo(null);
+            state.turn = state.turn === 'a' ? 'b' : 'a';
+            setStatus('Lượt của bạn');
+            draw();
+        }, 650);
+    }
+    function finishXo(result) {
+        finishDuel({
+            game: 'xoxo',
+            winner: result ? myId() : (result === false ? 'npc' : null),
+            a_taps: 0, b_taps: 0, score: {}, names: {}
+        });
+    }
+
     // ---------- vẽ ----------
     function canvasEl() { return $('duel-canvas'); }
 
@@ -196,6 +262,31 @@
         ctx.fillRect(0, 0, W, H);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
+
+        if (state.game === 'xoxo') {
+            const size = 180, left = (W - size) / 2 - 40, top = 20, cell = size / 3;
+            ctx.strokeStyle = '#475569';
+            ctx.lineWidth = 3;
+            for (let i = 0; i <= 3; i++) {
+                ctx.beginPath(); ctx.moveTo(left + i * cell, top); ctx.lineTo(left + i * cell, top + size); ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(left, top + i * cell); ctx.lineTo(left + size, top + i * cell); ctx.stroke();
+            }
+            ctx.font = 'bold 38px sans-serif';
+            state.board.forEach(function (mark, index) {
+                if (!mark) return;
+                const x = left + (index % 3 + 0.5) * cell;
+                const y = top + (Math.floor(index / 3) + 0.5) * cell;
+                ctx.fillStyle = mark === 'X' ? '#60a5fa' : '#f87171';
+                ctx.fillText(mark, x, y);
+            });
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillText('Bạn: ' + state.myMark, 12, 20);
+            ctx.fillStyle = '#fca5a5';
+            ctx.fillText(state.opponentName + ': ' + (state.myMark === 'X' ? 'O' : 'X'), 12, 40);
+            return;
+        }
 
         if (state.game === 'tug') {
             const left = 50, right = W - 50, midY = 140;
@@ -336,6 +427,17 @@
 
         net.on('duel_round', applyRound);
 
+        net.on('duel_board', function (data) {
+            state.board = (data.board || []).slice();
+            state.turn = data.turn;
+            draw();
+            if (data.winner !== null && data.winner !== undefined) {
+                setStatus(data.winner === myId() ? '🏆 Bạn thắng!' : '😅 Bạn thua');
+            } else {
+                setStatus(myTurn() ? 'Lượt của bạn' : 'Chờ đối thủ…');
+            }
+        });
+
         net.on('duel_end', finishDuel);
     }
 
@@ -363,7 +465,11 @@
 
         const canvas = canvasEl();
         if (canvas) {
-            canvas.addEventListener('pointerdown', function (event) { event.preventDefault(); tap(); });
+            canvas.addEventListener('pointerdown', function (event) {
+                event.preventDefault();
+                if (state.game === 'xoxo') { handleXoClick(event); return; }
+                tap();
+            });
         }
         document.querySelectorAll('.rps-btn').forEach(function (button) {
             button.addEventListener('click', function () { chooseRps(button.dataset.choice); });

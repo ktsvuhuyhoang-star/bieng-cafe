@@ -78,6 +78,7 @@ const BIENG_BUNDLED_LAYOUT = {"schema":"bieng-layout","version":1,"exporter":"1.
             const tops=d.tops.map(f=>({outer:projectPoly(i,f.outer),holes:f.holes.map(h=>projectPoly(i,h))}));
             scene.mapDefinitionObjects.push({id:i.id,definition:d.name,kind,polygon:poly,transform:i.transform,bounds:r});
             if(kind==='fixture'&&/lavabor/i.test(d.name)){(scene.washPoints=scene.washPoints||[]).push({x:c.x,y:c.y});}
+            if(kind==='plant'){(scene.plantPoints=scene.plantPoints||[]).push({x:c.x,y:c.y});}
             if(kind==='floor'){
                 for(const f of tops){fill(ctx,f.outer,'#ad7951',f.holes);fill(fc,f.outer,'#fff',f.holes);}
             }else if(kind==='wall'){
@@ -280,6 +281,12 @@ class CafeScene extends Phaser.Scene {
         // 2. Build Cafe Floorplan according to the architectural layout
         this.buildArchitecturalMap();
         this.drawParking();
+
+        // Khu hút thuốc ngay ngoài cửa vào
+        this.add.text(this.spawnPoint.x, this.spawnPoint.y + 38, '🚬 Khu hút thuốc', {
+            fontFamily: 'sans-serif', fontSize: '10px', color: '#e2e8f0',
+            stroke: '#1e293b', strokeThickness: 3
+        }).setOrigin(0.5).setDepth(6);
 
         // 3. Create Local Player
         const profile = window.localPlayerProfile || {
@@ -507,6 +514,21 @@ class CafeScene extends Phaser.Scene {
     nearWash() {
         const points = this.washPoints || [];
         return points.some((p) => Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < 42);
+    }
+
+    nearPlant() {
+        const points = this.plantPoints || [];
+        return points.some((p) => Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < 48);
+    }
+
+    waterPlant() {
+        if (!window.BiengMini) return;
+        window.BiengMini.open('plant', function () {
+            if (window.cafeAudio) window.cafeAudio.playDing();
+            window.updatePlayerStatus('Vừa tưới cây 🌱');
+            window.showSystemNotice('Cây được tưới rồi 🌱 Xanh tốt nhé!');
+            if (window.BiengDuel) window.BiengDuel.addBadge('🌱');
+        });
     }
 
     washHands() {
@@ -779,6 +801,11 @@ class CafeScene extends Phaser.Scene {
             return;
         }
 
+        if (this.currentInteractZone === 'plant') {
+            this.waterPlant();
+            return;
+        }
+
         const reason = this.blockReason();
         if (reason) {
             window.showSystemNotice(reason);
@@ -994,6 +1021,10 @@ class CafeScene extends Phaser.Scene {
 
         this.player.setVelocity(vx, vy);
 
+        // Khu hút thuốc: ngay ngoài cửa vào (quanh điểm spawn)
+        window.smokingSpotNear = Phaser.Math.Distance.Between(
+            this.player.x, this.player.y, this.spawnPoint.x, this.spawnPoint.y) < 110;
+
         const isMoving = vx !== 0 || vy !== 0;
 
         if (isMoving) {
@@ -1026,6 +1057,9 @@ class CafeScene extends Phaser.Scene {
         } else if (window.guest && window.guest.dirty && this.nearWash()) {
             this.currentInteractZone = 'wash';
             promptText = "[E] / Chạm: Rửa tay ở lavabo 🧼";
+        } else if (this.nearPlant() && !blocked) {
+            this.currentInteractZone = 'plant';
+            promptText = "[E] / Chạm: Tưới cây 🌱";
         } else if (this.npcPoint && Phaser.Math.Distance.Between(
             this.player.x, this.player.y, this.npcPoint.x, this.npcPoint.y) < 72) {
             if (blocked) {
