@@ -207,14 +207,15 @@
         ctx.fillRect(96, 96, 88, 16);
         ctx.fillStyle = '#94a3b8';
         ctx.fillRect(176, 96, 10, 44);
-        // thanh thăng bằng
+        // thanh thăng bằng (vùng xanh rộng hơn cho dễ)
+        const low = 0.28, high = 0.72;
         ctx.fillStyle = 'rgba(34,197,94,0.22)';
-        ctx.fillRect(300, 56, 34, 128);
+        ctx.fillRect(300, 56 + (1 - high) * 128, 34, (high - low) * 128);
         ctx.strokeStyle = '#22c55e';
         ctx.lineWidth = 2;
-        ctx.strokeRect(300, 56, 34, 128);
+        ctx.strokeRect(300, 56 + (1 - high) * 128, 34, (high - low) * 128);
         const markerY = 56 + (1 - s.needle) * 128;
-        ctx.fillStyle = s.needle > 0.34 && s.needle < 0.66 ? '#22c55e' : '#f59e0b';
+        ctx.fillStyle = s.needle > low && s.needle < high ? '#22c55e' : '#f59e0b';
         ctx.fillRect(292, markerY - 5, 50, 10);
         ctx.fillStyle = '#fef3c7';
         ctx.font = '13px sans-serif';
@@ -259,12 +260,12 @@
             s.drops = s.drops.filter(function (d) { return d.y < 250; });
             if (s.progress >= 100) finish(s, 'Ủ lạnh khéo léo! Ly Cold brew đã sẵn sàng.');
         } else if (s.key === 'toilet') {
-            s.velocity += (Math.random() - 0.5) * 2.2 * dt;
-            s.velocity += (holding ? -1.7 : 1.15) * dt;
-            s.velocity = Math.max(-1.7, Math.min(1.7, s.velocity));
+            s.velocity += (Math.random() - 0.5) * 1.1 * dt;
+            s.velocity += (holding ? -1.4 : 0.85) * dt;
+            s.velocity = Math.max(-1.3, Math.min(1.3, s.velocity));
             s.needle = Math.max(0, Math.min(1, s.needle + s.velocity * dt));
-            const inside = s.needle > 0.34 && s.needle < 0.66;
-            s.progress += (inside ? 14 : -9) * dt;
+            const inside = s.needle > 0.28 && s.needle < 0.72;
+            s.progress += (inside ? 20 : -6) * dt;
             s.progress = Math.max(0, Math.min(100, s.progress));
             if (s.progress >= 100) finish(s, 'Xong rồi! Rửa tay rồi ra uống cà phê nhé 🚽🧼');
         } else if (s.key === 'banana') {

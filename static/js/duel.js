@@ -12,10 +12,15 @@
         id: null, game: null, role: 'a', opponentId: null, opponentName: '',
         playing: false, finished: false, tapsMe: 0, tapsThem: 0,
         scoreMe: 0, scoreThem: 0, round: 1, endsAt: 0, seconds: 8,
-        myChoice: null, theirChoice: null, pendingInvite: null, lastTarget: null, raf: 0
+        myChoice: null, theirChoice: null, pendingInvite: null, lastTarget: null, raf: 0,
+        npc: false, botTimer: 0, localEndTimer: 0
     };
 
     function $(id) { return document.getElementById(id); }
+
+    function myId() {
+        return (window.cafeNetwork && window.cafeNetwork.playerId) || 'me';
+    }
 
     function badges() {
         try {
@@ -38,16 +43,80 @@
     // ---------- gửi / nhận lời mời ----------
     function challenge(pid, name) {
         if (!pid) return;
+        state.npc = false;
         state.lastTarget = { id: pid, name: name };
         const hint = $('duel-choose-hint');
         if (hint) hint.textContent = 'Thách đấu ' + name + ' — chọn trò chơi:';
         $('duel-choose').classList.remove('hidden');
     }
 
+    function challengeNpc() {
+        state.npc = true;
+        state.lastTarget = { id: 'npc', name: 'Hoàng Bệu' };
+        const hint = $('duel-choose-hint');
+        if (hint) hint.textContent = 'Thách đấu Hoàng Bệu (chủ quán) — chọn trò:';
+        $('duel-choose').classList.remove('hidden');
+    }
+
     function sendInvite(game) {
         if (!state.lastTarget) return;
         $('duel-choose').classList.add('hidden');
+        if (state.lastTarget.id === 'npc') return startNpcDuel(game);
+        state.npc = false;
         window.cafeNetwork.send({ type: 'duel_invite', to: state.lastTarget.id, game: game });
+    }
+
+    // ---------- đấu với NPC Hoàng Bệu (tự động, tỉ lệ thắng 50%) ----------
+    function startNpcDuel(game) {
+        state.npc = true;
+        startDuel({
+            id: 'NPC-' + Date.now(), game: game, a: myId(), b: 'npc',
+            names: { npc: 'Hoàng Bệu' }, seconds: 8
+        });
+        if (game === 'tug') {
+            clearInterval(state.botTimer);
+            state.botTimer = setInterval(function () {
+                if (!state.playing || state.game !== 'tug') return;
+                state.tapsThem += 1;
+                draw();
+            }, 110 + Math.random() * 110);
+            clearTimeout(state.localEndTimer);
+            state.localEndTimer = setTimeout(endNpcTug, 8000);
+        }
+    }
+
+    function endNpcTug() {
+        if (!state.playing || state.game !== 'tug') return;
+        const win = Math.random() < 0.5;
+        const mine = Math.max(1, state.tapsMe);
+        const theirs = win
+            ? Math.max(0, mine - 1 - Math.floor(Math.random() * 4))
+            : mine + 2 + Math.floor(Math.random() * 4);
+        finishDuel({
+            game: 'tug', winner: win ? myId() : 'npc',
+            a_taps: mine, b_taps: theirs, score: {}, names: {}
+        });
+    }
+
+    function resolveNpcRound(mine, theirs) {
+        const me = myId();
+        let winner = null;
+        if (mine !== theirs) {
+            const beats = { rock: 'scissors', paper: 'rock', scissors: 'paper' };
+            winner = beats[mine] === theirs ? me : 'npc';
+        }
+        if (winner === me) state.scoreMe += 1;
+        else if (winner === 'npc') state.scoreThem += 1;
+        const score = {};
+        score[me] = state.scoreMe;
+        score.npc = state.scoreThem;
+        applyRound({ round: state.round, a_choice: mine, b_choice: theirs, winner: winner, score: score });
+        if (state.scoreMe >= 2 || state.scoreThem >= 2) {
+            finishDuel({
+                game: 'rps', winner: state.scoreMe >= 2 ? me : 'npc',
+                score: score, names: {}, a_taps: 0, b_taps: 0
+            });
+        }
     }
 
     function onInvite(data) {
@@ -94,15 +163,17 @@
         state.playing = false;
         state.finished = true;
         cancelAnimationFrame(state.raf);
+        clearInterval(state.botTimer);
+        clearTimeout(state.localEndTimer);
         const winner = data.winner;
-        const iWon = winner && winner === window.cafeNetwork.playerId;
+        const iWon = winner && winner === myId();
         const draw = !winner;
         setStatus(draw ? '🤝 Hoà!' : (iWon ? '🏆 Bạn thắng!' : '😅 Bạn thua — đấu lại nhé!'));
         if (state.game === 'tug') {
             state.tapsMe = state.role === 'a' ? data.a_taps : data.b_taps;
             state.tapsThem = state.role === 'a' ? data.b_taps : data.a_taps;
         } else if (data.score) {
-            state.scoreMe = data.score[window.cafeNetwork.playerId] || 0;
+            state.scoreMe = data.score[myId()] || 0;
             state.scoreThem = data.score[state.opponentId] || 0;
         }
         if (iWon) {
@@ -200,13 +271,39 @@
         draw();
     }
 
+    function applyRound(data) {
+        state.myChoice = state.role === 'a' ? data.a_choice : data.b_choice;
+        state.theirChoice = state.role === 'a' ? data.b_choice : data.a_choice;
+        state.scoreMe = data.score[myId()] || 0;
+        state.scoreThem = data.score[state.opponentId] || 0;
+        state.round = data.round + 1;
+        const result = data.winner === null ? 'Hoà ván này'
+            : (data.winner === myId() ? 'Bạn thắng ván này!' : state.opponentName + ' thắng ván này');
+        setStatus(result + ' · ' + state.scoreMe + '–' + state.scoreThem);
+        draw();
+        resetRpsButtons();
+        setTimeout(function () {
+            if (!state.playing) return;
+            state.myChoice = null;
+            state.theirChoice = null;
+            setStatus('Chọn tay của bạn');
+            draw();
+        }, 1200);
+    }
+
     function chooseRps(choice) {
         if (!state.playing || state.game !== 'rps' || state.myChoice) return;
         state.myChoice = choice;
         setStatus('Đã chọn ' + EMOJI[choice] + ' — chờ đối thủ…');
-        window.cafeNetwork.send({ type: 'duel_rps', id: state.id, choice: choice });
         draw();
         document.querySelectorAll('.rps-btn').forEach(function (button) { button.disabled = true; });
+        if (state.npc) {
+            const options = ['rock', 'paper', 'scissors'];
+            const theirs = options[Math.floor(Math.random() * 3)];
+            setTimeout(function () { if (state.playing) resolveNpcRound(choice, theirs); }, 600);
+            return;
+        }
+        window.cafeNetwork.send({ type: 'duel_rps', id: state.id, choice: choice });
     }
 
     function resetRpsButtons() {
@@ -226,7 +323,10 @@
 
         net.on('duel_invite', onInvite);
 
-        net.on('duel_start', startDuel);
+        net.on('duel_start', function (data) {
+            state.npc = false;
+            startDuel(data);
+        });
 
         net.on('duel_progress', function (data) {
             state.tapsMe = state.role === 'a' ? data.a_taps : data.b_taps;
@@ -234,25 +334,7 @@
             draw();
         });
 
-        net.on('duel_round', function (data) {
-            state.myChoice = state.role === 'a' ? data.a_choice : data.b_choice;
-            state.theirChoice = state.role === 'a' ? data.b_choice : data.a_choice;
-            state.scoreMe = data.score[window.cafeNetwork.playerId] || 0;
-            state.scoreThem = data.score[state.opponentId] || 0;
-            state.round = data.round + 1;
-            const result = data.winner === null ? 'Hoà ván này' :
-                (data.winner === window.cafeNetwork.playerId ? 'Bạn thắng ván này!' : 'Đối thủ thắng ván này');
-            setStatus(result + ' · ' + state.scoreMe + '–' + state.scoreThem);
-            draw();
-            resetRpsButtons();
-            setTimeout(function () {
-                if (!state.playing) return;
-                state.myChoice = null;
-                state.theirChoice = null;
-                setStatus('Chọn tay của bạn');
-                draw();
-            }, 1200);
-        });
+        net.on('duel_round', applyRound);
 
         net.on('duel_end', finishDuel);
     }
@@ -290,13 +372,16 @@
         const close = $('duel-close');
         if (close) close.addEventListener('click', function () {
             cancelAnimationFrame(state.raf);
+            clearInterval(state.botTimer);
+            clearTimeout(state.localEndTimer);
             state.playing = false;
             $('duel-modal').classList.add('hidden');
         });
         const rematch = $('duel-rematch');
         if (rematch) rematch.addEventListener('click', function () {
             $('duel-modal').classList.add('hidden');
-            if (state.opponentId) challenge(state.opponentId, state.opponentName);
+            if (state.npc) challengeNpc();
+            else if (state.opponentId) challenge(state.opponentId, state.opponentName);
         });
 
         window.addEventListener('bieng:badges', function () { document.querySelectorAll('.rps-btn').forEach(function (b) { b.disabled = false; }); });
@@ -310,6 +395,7 @@
 
     window.BiengDuel = {
         challenge: challenge,
+        challengeNpc: challengeNpc,
         badges: badges,
         addBadge: addBadge,
         busy: function () { return state.playing || !!state.pendingInvite; }

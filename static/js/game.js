@@ -159,6 +159,14 @@ const BIENG_BUNDLED_LAYOUT = {"schema":"bieng-layout","version":1,"exporter":"1.
         if(scene.textures.exists('bieng_synced_plan'))scene.textures.remove('bieng_synced_plan');scene.textures.addCanvas('bieng_synced_plan',art);scene.add.image(0,0,'bieng_synced_plan').setOrigin(0).setDepth(2);
         for(const seat of seats){const z=scene.add.zone(seat.point.x,seat.point.y,seat.r.w,seat.r.h);z.chairId=seat.id;z.sitX=seat.point.x;z.sitY=seat.point.y-3;z.reach=seat.reach||34;z.seatKind=seat.seatKind||'ghế';let stand={x:z.sitX,y:z.sitY+24};try{stand=freeNear({x:z.sitX,y:z.sitY+24});}catch(e){}z.standX=stand.x;z.standY=stand.y;scene.chairSprites.push(z);}
         scene.hoangBeu=scene.add.sprite(npc.x,npc.y,'hoang_beu').setDepth(20);
+        scene.npcPoint={x:npc.x,y:npc.y};
+        scene.hoangBeu.setInteractive({useHandCursor:true});
+        scene.hoangBeu.on('pointerdown',()=>{
+            if(!scene.player||!window.BiengDuel||window.BiengDuel.busy())return;
+            if(scene.blockReason&&scene.blockReason())return;
+            const distance=Phaser.Math.Distance.Between(scene.player.x,scene.player.y,npc.x,npc.y);
+            if(distance<150)window.BiengDuel.challengeNpc();
+        });
         const label=(x,y,text)=>scene.add.text(x,y,text,{fontSize:'10px',fontFamily:'sans-serif',color:'#fff3d4',stroke:'#29251c',strokeThickness:3}).setOrigin(.5).setDepth(21);
         label(npc.x,npc.y-28,'Hoàng Bệu');
         const wc=doors.find(o=>/ve sinh/i.test(o.d.name));if(wc){label(wc.c.x,wc.r.y-35,'VỆ SINH');scene.wcDoorPoint={x:wc.c.x,y:wc.c.y};}
@@ -822,6 +830,11 @@ class CafeScene extends Phaser.Scene {
 
         if (this.duelTarget && window.BiengDuel) {
             window.BiengDuel.challenge(this.duelTarget.id, this.duelTarget.name);
+            return;
+        }
+
+        if (this.npcTarget && window.BiengDuel) {
+            window.BiengDuel.challengeNpc();
         }
     }
 
@@ -1047,6 +1060,7 @@ class CafeScene extends Phaser.Scene {
         let promptText = "";
         this.currentInteractZone = null;
         this.duelTarget = null;
+        this.npcTarget = false;
         const inParking = this.needsParking() && this.inParkingZone();
         const blocked = this.blockReason();
         if (inParking) {
@@ -1059,6 +1073,14 @@ class CafeScene extends Phaser.Scene {
         } else if (this.nearWcDoor()) {
             this.currentInteractZone = 'wc';
             promptText = window.wcOpen ? "[E] / Chạm: Đóng cửa WC 🚪" : "[E] / Chạm: Mở cửa WC 🚪";
+        } else if (this.npcPoint && Phaser.Math.Distance.Between(
+            this.player.x, this.player.y, this.npcPoint.x, this.npcPoint.y) < 72) {
+            if (blocked) {
+                promptText = blocked;
+            } else {
+                this.npcTarget = true;
+                promptText = "[E] / Chạm: Thách đấu Hoàng Bệu 🎲";
+            }
         } else if (Phaser.Geom.Intersects.RectangleToRectangle(this.player.getBounds(), this.orderZone.getBounds())) {
             if (blocked) {
                 promptText = blocked;
