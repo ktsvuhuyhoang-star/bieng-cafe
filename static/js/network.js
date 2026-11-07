@@ -110,22 +110,27 @@ class CafeNetwork {
     }
 
     sendMove(x, y, direction, isMoving) {
+        const rx = Math.round(x), ry = Math.round(y);
         if (this.profile) {
-            this.profile.x = Math.round(x);
-            this.profile.y = Math.round(y);
+            this.profile.x = rx;
+            this.profile.y = ry;
         }
         const now = Date.now();
-        // Throttle movement network packets to ~20 times per sec
-        if (now - this.lastMoveSent > 50 || !isMoving) {
-            this.lastMoveSent = now;
-            this.send({
-                type: 'move',
-                x: Math.round(x),
-                y: Math.round(y),
-                direction: direction,
-                is_moving: isMoving
-            });
-        }
+        const last = this.lastSent;
+        const changed = !last || last.x !== rx || last.y !== ry
+            || last.direction !== direction || last.isMoving !== isMoving;
+        // Nhẹ: đứng yên thì chỉ gửi keepalive 20 giây/lần; đang đi thì tối đa 20 gói/giây
+        if (!changed && now - (this.lastMoveSent || 0) < 20000) return;
+        if (changed && now - (this.lastMoveSent || 0) < 50) return;
+        this.lastMoveSent = now;
+        this.lastSent = { x: rx, y: ry, direction: direction, isMoving: isMoving };
+        this.send({
+            type: 'move',
+            x: rx,
+            y: ry,
+            direction: direction,
+            is_moving: isMoving
+        });
     }
 
     sendSeat(seated, chairId, x, y) {

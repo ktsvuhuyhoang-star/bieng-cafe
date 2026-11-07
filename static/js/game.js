@@ -248,7 +248,7 @@ class CafeScene extends Phaser.Scene {
     }
 
     preload() {
-        this.load.json('bieng-sync-layout','/static/layouts/bieng-layout.json?t='+Date.now());
+        // Không tải thêm layout tĩnh: game dùng bản đã xuất bản (/api/layout) hoặc bản nhúng trong file này.
     }
 
     create() {
@@ -340,7 +340,7 @@ class CafeScene extends Phaser.Scene {
     }
 
     buildArchitecturalMap() {
-        const common=this.cache.json.get('bieng-sync-layout');
+        const common=this.cache.json.get('bieng-sync-layout')||null;
         const data=window.BiengSync.pick(window.publishedLayout||common,BIENG_BUNDLED_LAYOUT);
         try { window.BiengSync.draw(this,data); }
         catch (error) {

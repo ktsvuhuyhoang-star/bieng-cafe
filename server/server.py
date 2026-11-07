@@ -32,6 +32,8 @@ from websockets.exceptions import ConnectionClosed
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC = ROOT / 'static'
+mimetypes.add_type('application/manifest+json', '.webmanifest')
+mimetypes.add_type('image/svg+xml', '.svg')
 PRODUCT = 'bieng-cafe-2d-portable'
 VERSION = '3.1'
 PROJECT_ID = hashlib.sha256(str(ROOT).casefold().encode()).hexdigest()[:20]

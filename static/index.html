@@ -2,7 +2,13 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#1c140e">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Bieng Cafe">
+    <link rel="manifest" href="/static/manifest.webmanifest">
     <title>☕ Bieng Cafe 2D</title>
     <link rel="stylesheet" href="/static/css/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220%22%22><text y=%2222%22 font-size=%2224%22>☕</text></svg>">
@@ -28,6 +34,7 @@
                 <button class="hud-btn" id="btn-jukebox">🎵 Jukebox</button>
                 <button class="hud-btn" id="btn-study">⏱️ Học tập</button>
                 <button class="hud-btn" id="btn-chess">♞ Cờ vua</button>
+                <button class="hud-btn" id="btn-fullscreen" title="Bật/tắt toàn màn hình">⛶ Toàn màn hình</button>
                 <button class="hud-btn hud-btn-admin" id="btn-admin">🔐 Quản trị</button>
             </div>
         </div>
@@ -57,6 +64,9 @@
             </div>
             <button id="mobile-action-btn">E<br><span style="font-size:10px;">Chạm</span></button>
         </div>
+
+        <!-- Gợi ý xoay ngang trên điện thoại -->
+        <div id="rotate-hint">📱 Xoay ngang điện thoại rồi bấm <strong>⛶ Toàn màn hình</strong> để chơi dễ hơn</div>
 
         <!-- Welcome & Character Customizer Modal -->
         <div id="entry-modal" class="modal-overlay">

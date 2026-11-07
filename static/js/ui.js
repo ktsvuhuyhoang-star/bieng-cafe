@@ -85,20 +85,32 @@ function launchGame() {
         width: 960,
         height: 540,
         pixelArt: true,
-        render: { preserveDrawingBuffer: true },
+        banner: false,
+        disableContextMenu: true,
+        render: { preserveDrawingBuffer: true, antialias: false, powerPreference: 'low-power' },
         scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
         physics: { default: 'arcade', arcade: { gravity: { y: 0 }, debug: false } },
         scene: [CafeScene]
     };
     gameInstance = new Phaser.Game(config);
+    // Tab bị ẩn thì dừng vòng lặp để không ăn CPU/quạt
+    document.addEventListener('visibilitychange', function () {
+        if (!gameInstance || !gameInstance.loop) return;
+        if (document.hidden) gameInstance.loop.sleep();
+        else gameInstance.loop.wake();
+    });
 }
 
 // 2. HUD & thông báo
+let lastPrompt = null;
 window.updateInteractionPrompt = function (text) {
+    const value = text || '';
+    if (value === lastPrompt) return;   // tránh ghi DOM 60 lần/giây
+    lastPrompt = value;
     const prompt = document.getElementById('interact-prompt');
     const action = document.getElementById('mobile-action-btn');
-    if (text) {
-        prompt.innerText = text;
+    if (value) {
+        prompt.innerText = value;
         prompt.classList.remove('hidden');
         if (action) action.classList.add('highlight');
     } else {
@@ -372,6 +384,52 @@ function initMobileControls() {
     }
 }
 
+// 9. Toàn màn hình (quan trọng trên điện thoại: thanh địa chỉ che mất nút điều khiển)
+function initFullscreen() {
+    const button = document.getElementById('btn-fullscreen');
+    if (!button) return;
+
+    function active() {
+        return !!(document.fullscreenElement || document.webkitFullscreenElement);
+    }
+    function sync() {
+        const on = active();
+        button.textContent = on ? '⛶ Thu nhỏ' : '⛶ Toàn màn hình';
+        document.body.classList.toggle('is-fullscreen', on);
+        setTimeout(function () {
+            if (gameInstance && gameInstance.scale) gameInstance.scale.refresh();
+        }, 250);
+    }
+    async function toggle() {
+        try {
+            if (active()) {
+                await (document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen());
+            } else {
+                const target = document.documentElement;
+                await (target.requestFullscreen
+                    ? target.requestFullscreen({ navigationUI: 'hide' })
+                    : target.webkitRequestFullscreen());
+                if (window.screen && screen.orientation && screen.orientation.lock) {
+                    try { await screen.orientation.lock('landscape'); } catch (error) { /* iOS không cho khoá */ }
+                }
+            }
+        } catch (error) {
+            window.showSystemNotice('Trình duyệt này không cho bật toàn màn hình. Trên iPhone: nút Chia sẻ → "Thêm vào MH chính" để chơi không có thanh địa chỉ.');
+        }
+        sync();
+    }
+
+    button.addEventListener('click', toggle);
+    document.addEventListener('fullscreenchange', sync);
+    document.addEventListener('webkitfullscreenchange', sync);
+    window.addEventListener('orientationchange', function () {
+        setTimeout(function () {
+            if (gameInstance && gameInstance.scale) gameInstance.scale.refresh();
+        }, 300);
+    });
+    sync();
+}
+
 // Khởi động
 window.addEventListener('DOMContentLoaded', function () {
     initEntry();
@@ -380,6 +438,7 @@ window.addEventListener('DOMContentLoaded', function () {
     initPomodoro();
     initChat();
     initMobileControls();
+    initFullscreen();
 
     if (window.cafeNetwork) {
         window.cafeNetwork.on('error', function (data) {

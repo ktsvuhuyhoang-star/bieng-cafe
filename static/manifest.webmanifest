@@ -1,0 +1,21 @@
+{
+  "name": "Bieng Cafe 2D",
+  "short_name": "Bieng Cafe",
+  "description": "Quán cà phê pixel 2D nhiều người chơi của Anh Hoàng Bệu",
+  "start_url": "/",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone", "minimal-ui"],
+  "orientation": "landscape",
+  "background_color": "#1c140e",
+  "theme_color": "#1c140e",
+  "lang": "vi",
+  "icons": [
+    {
+      "src": "/static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
