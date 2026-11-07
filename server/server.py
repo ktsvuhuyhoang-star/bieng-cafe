@@ -36,6 +36,17 @@ mimetypes.add_type('application/manifest+json', '.webmanifest')
 mimetypes.add_type('image/svg+xml', '.svg')
 PRODUCT = 'bieng-cafe-2d-portable'
 VERSION = '3.1'
+
+
+def _build_id():
+    """Mã bản dựng = 8 ký tự đầu sha1 của static/js/game.js (để biết server đang chạy bản nào)."""
+    try:
+        return hashlib.sha1((STATIC / 'js' / 'game.js').read_bytes()).hexdigest()[:8]
+    except OSError:
+        return 'unknown'
+
+
+BUILD = _build_id()
 PROJECT_ID = hashlib.sha256(str(ROOT).casefold().encode()).hexdigest()[:20]
 COLORS = {'shirt': '#d97706', 'hair': '#451a03', 'skin': '#fed7aa', 'pants': '#1e293b'}
 VEHICLES = ('walk', 'bike', 'motorbike', 'car')
@@ -679,7 +690,8 @@ class Handler(BaseHTTPRequestHandler):
             return self.websocket_proxy()
         cafe = self.server.cafe
         if route == '/api/health':
-            return self.respond(200, {'app': PRODUCT, 'version': VERSION, 'project_id': PROJECT_ID,
+            return self.respond(200, {'app': PRODUCT, 'version': VERSION, 'build': BUILD,
+                                      'project_id': PROJECT_ID,
                                       'port': self.server.server_port, 'players': len(cafe.players)})
         if route == '/api/admin/check':
             allowed = self.admin_allowed()
