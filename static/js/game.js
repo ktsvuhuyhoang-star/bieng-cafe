@@ -282,20 +282,6 @@ class CafeScene extends Phaser.Scene {
         this.buildArchitecturalMap();
         this.drawParking();
 
-        // Khu hút thuốc: dãy ghế ngoài trời bên trái quán
-        this.smokingZone = { x: 136, y: 176, w: 74, h: 262 };
-        const zone = this.smokingZone;
-        const outline = this.add.graphics().setDepth(5);
-        outline.lineStyle(2, 0x94a3b8, 0.9);
-        outline.strokeRect(zone.x, zone.y, zone.w, zone.h);
-        outline.fillStyle(0x94a3b8, 0.08);
-        outline.fillRect(zone.x, zone.y, zone.w, zone.h);
-        this.add.text(zone.x + zone.w / 2, zone.y - 12, '🚬 KHU HÚT THUỐC', {
-            fontFamily: 'sans-serif', fontSize: '9px', color: '#e2e8f0',
-            stroke: '#1e293b', strokeThickness: 3
-        }).setOrigin(0.5).setDepth(6);
-
-        // 3. Create Local Player
         const profile = window.localPlayerProfile || {
             name: "Bạn",
             outfit: { shirt: "#d97706", hair: "#451a03", skin: "#fed7aa", pants: "#1e293b" }
@@ -521,22 +507,6 @@ class CafeScene extends Phaser.Scene {
     nearWash() {
         const points = this.washPoints || [];
         return points.some((p) => Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < 42);
-    }
-
-    inSmokingZone() {
-        const zone = this.smokingZone;
-        if (!zone) return false;
-        return this.player.x > zone.x && this.player.x < zone.x + zone.w
-            && this.player.y > zone.y && this.player.y < zone.y + zone.h;
-    }
-
-    smokeNow() {
-        if (!window.BiengMini) return;
-        window.BiengMini.open('smoke', function () {
-            window.updatePlayerStatus('Vừa hút thuốc 🚬');
-            window.showSystemNotice('🚬 Xong một điếu. Nhớ hút ở khu ngoài trời thôi nhé!');
-            if (window.BiengDuel) window.BiengDuel.addBadge('🚬');
-        });
     }
 
     nearPlant() {
@@ -829,11 +799,6 @@ class CafeScene extends Phaser.Scene {
             return;
         }
 
-        if (this.currentInteractZone === 'smoke') {
-            this.smokeNow();
-            return;
-        }
-
         const reason = this.blockReason();
         if (reason) {
             window.showSystemNotice(reason);
@@ -1049,9 +1014,6 @@ class CafeScene extends Phaser.Scene {
 
         this.player.setVelocity(vx, vy);
 
-        // Khu hút thuốc ngoài trời
-        window.smokingSpotNear = this.inSmokingZone();
-
         const isMoving = vx !== 0 || vy !== 0;
 
         if (isMoving) {
@@ -1087,9 +1049,6 @@ class CafeScene extends Phaser.Scene {
         } else if (this.nearPlant() && !blocked) {
             this.currentInteractZone = 'plant';
             promptText = "[E] / Chạm: Tưới cây 🌱";
-        } else if (this.inSmokingZone() && !blocked) {
-            this.currentInteractZone = 'smoke';
-            promptText = "[E] / Chạm: Hút thuốc 🚬";
         } else if (this.npcPoint && Phaser.Math.Distance.Between(
             this.player.x, this.player.y, this.npcPoint.x, this.npcPoint.y) < 72) {
             if (blocked) {

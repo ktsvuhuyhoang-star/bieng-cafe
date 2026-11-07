@@ -34,10 +34,6 @@
         plant: {
             name: 'Tưới cây', icon: '🌱',
             hint: 'Giữ chuột hoặc Space để tưới. Giữ độ ẩm trong vùng xanh khoảng 5 giây.'
-        },
-        smoke: {
-            name: 'Hút thuốc', icon: '🚬',
-            hint: 'Bấm đúng lúc vòng khói nằm trong vùng xanh — thả đủ 3 vòng.'
         }
     };
 
@@ -49,7 +45,7 @@
             key: key, t: 0, progress: 0, flow: 0.12, pressure: 0,
             needle: 0.5, velocity: 0,
             taps: 0, lastTap: 0, knife: 0, knifeDir: 1, cuts: 0, zone: 0.5,
-            moisture: 0.5, rings: 0, ringPos: 0.5, ringDir: 1, band: 0.5,
+            moisture: 0.5,
             drops: [], spawn: 0.4, hits: 0, misses: 0, finished: false, flash: 0
         };
     }
@@ -239,43 +235,6 @@
         ctx.fillText(Math.round(s.progress) + '%', 300, 204);
     }
 
-    function drawSmoke(s) {
-        ctx.fillStyle = '#141018';
-        ctx.fillRect(0, 0, W, H);
-        // điếu thuốc
-        ctx.fillStyle = '#e5e7eb';
-        ctx.fillRect(150, 168, 90, 10);
-        ctx.fillStyle = '#f97316';
-        ctx.fillRect(238, 168, 8, 10);
-        // làn khói
-        ctx.strokeStyle = 'rgba(226,232,240,0.55)';
-        ctx.lineWidth = 3;
-        for (let i = 0; i < 3; i++) {
-            ctx.beginPath();
-            const baseY = 150 - i * 34;
-            for (let x = 0; x <= 120; x += 6) {
-                const y = baseY - Math.sin((x / 120) * Math.PI * 2 + s.t * 2) * 8;
-                if (x === 0) ctx.moveTo(200 + x, y); else ctx.lineTo(200 + x, y);
-            }
-            ctx.stroke();
-        }
-        // vòng khói
-        const low = s.band - 0.1, high = s.band + 0.1;
-        ctx.fillStyle = 'rgba(34,197,94,0.22)';
-        ctx.fillRect(300, 56 + (1 - high) * 128, 34, (high - low) * 128);
-        ctx.strokeStyle = '#22c55e';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(300, 56 + (1 - high) * 128, 34, (high - low) * 128);
-        const markerY = 56 + (1 - s.ringPos) * 128;
-        ctx.fillStyle = Math.abs(s.ringPos - s.band) < 0.1 ? '#22c55e' : '#f59e0b';
-        ctx.fillRect(292, markerY - 5, 50, 10);
-        ctx.fillStyle = '#fef3c7';
-        ctx.font = '13px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('Thả khói: ' + s.rings + '/3', 20, 26);
-        ctx.fillStyle = '#94a3b8';
-        ctx.fillText(Math.round(s.progress) + '%', 300, 204);
-    }
 
     function drawToilet(s) {
         ctx.fillStyle = '#0f172a';
@@ -364,12 +323,6 @@
             s.progress += (good ? 20 : -7) * dt;
             s.progress = Math.max(0, Math.min(100, s.progress));
             if (s.progress >= 100) finish(s, 'Cây được tưới đều rồi! Xanh mướt 🌱');
-        } else if (s.key === 'smoke') {
-            s.ringPos += s.ringDir * 0.75 * dt;
-            if (s.ringPos >= 1) { s.ringPos = 1; s.ringDir = -1; }
-            if (s.ringPos <= 0) { s.ringPos = 0; s.ringDir = 1; }
-            if (s.progress >= 100) finish(s, 'Ba vòng khói bay lên đẹp mắt 🚬');
-        }
     }
 
     function finish(s, message) {
@@ -397,7 +350,6 @@
         else if (mine.key === 'matcha') drawMatcha(mine);
         else if (mine.key === 'banana') drawBanana(mine);
         else if (mine.key === 'plant') drawPlant(mine);
-        else if (mine.key === 'smoke') drawSmoke(mine);
         else drawColdBrew(mine);
         if (barEl) barEl.style.width = Math.round(mine.progress) + '%';
         if (!mine.finished) {
@@ -452,15 +404,6 @@
             setStatus('Đang đánh trà… ' + Math.round(mine.progress) + '%');
             return;
         }
-        if (mine.key === 'smoke') {
-            if (Math.abs(mine.ringPos - mine.band) < 0.1) {
-                mine.rings += 1;
-                mine.progress = Math.min(100, mine.rings * 33.4);
-                mine.band = 0.18 + Math.random() * 0.64;
-                setStatus('Vòng khói ' + mine.rings + '/3');
-            } else {
-                setStatus('Trượt rồi — canh lại nhé');
-            }
             return;
         }
         if (mine.key === 'banana') {
