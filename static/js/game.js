@@ -272,7 +272,6 @@ class CafeScene extends Phaser.Scene {
         // 2. Build Cafe Floorplan according to the architectural layout
         this.buildArchitecturalMap();
         this.drawParking();
-        this.setupWcDoor();
 
         // 3. Create Local Player
         const profile = window.localPlayerProfile || {
@@ -291,6 +290,7 @@ class CafeScene extends Phaser.Scene {
 
         // Physical Colliders with cafe obstacles (properly attached to player)
         this.physics.add.collider(this.player, this.obstacles);
+        this.setupWcDoor();
 
         // Name Tag
         this.playerNameTag = this.add.text(180, 110, tagText(profile.name, loadBadges()), {
@@ -498,11 +498,16 @@ class CafeScene extends Phaser.Scene {
 
     /** Cửa WC: đóng thì chặn lối vào; nhiều người vẫn dùng chung bên trong được. */
     setupWcDoor() {
-        const point = this.wcDoorPoint || { x: 900, y: 200 };
-        this.wcBlocker = this.add.zone(point.x, point.y, 30, 30);
+        if (!this.player || !this.wcDoorPoint) return;
+        // Không đặt chướng ngại nếu điểm cửa quá gần chỗ spawn (tránh kẹt nhân vật)
+        const spawnDistance = Phaser.Math.Distance.Between(
+            this.spawnPoint.x, this.spawnPoint.y, this.wcDoorPoint.x, this.wcDoorPoint.y);
+        if (spawnDistance < 70) return;
+
+        this.wcBlocker = this.add.zone(this.wcDoorPoint.x, this.wcDoorPoint.y, 30, 30);
         this.physics.add.existing(this.wcBlocker, true);
         this.physics.add.collider(this.player, this.wcBlocker);
-        this.wcSign = this.add.text(point.x, point.y - 26, '🚪 WC', {
+        this.wcSign = this.add.text(this.wcDoorPoint.x, this.wcDoorPoint.y - 26, '🚪 WC', {
             fontFamily: 'sans-serif', fontSize: '10px', color: '#f8fafc',
             stroke: '#1e293b', strokeThickness: 3
         }).setOrigin(0.5).setDepth(30);
