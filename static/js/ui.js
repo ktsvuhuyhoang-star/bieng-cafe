@@ -225,7 +225,9 @@ window.closeMiniGame = function () {
 
 function startDrink(drink) {
     if (drink.key === 'smoke' && !window.smokingSpotNear) {
-        window.showSystemNotice('🚬 Hút thuốc phải ra khu hút thuốc ở ngoài cửa quán nhé!');
+        window.toggleDrinksModal(false);
+        const notice = document.getElementById('smoke-notice');
+        if (notice) notice.classList.remove('hidden');
         return;
     }
     window.toggleDrinksModal(false);

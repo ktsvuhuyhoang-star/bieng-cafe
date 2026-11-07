@@ -141,6 +141,7 @@
         state.round = 1;
         state.myChoice = null; state.theirChoice = null;
         state.seconds = data.seconds || 8;
+        state.hoangGood = undefined;
         state.endsAt = Date.now() + state.seconds * 1000;
 
         $('duel-invite').classList.add('hidden');
@@ -229,11 +230,31 @@
         draw();
         setTimeout(function () {
             if (!state.playing) return;
+            const opponentMark = state.myMark === 'X' ? 'O' : 'X';
             const empty = [];
             state.board.forEach(function (mark, i) { if (!mark) empty.push(i); });
             if (!empty.length) return finishXo(null);
-            const pick = empty[Math.floor(Math.random() * empty.length)];
-            const opponentMark = state.myMark === 'X' ? 'O' : 'X';
+            // Hoàng Bệu chơi tối ưu 60% số ván (chặn/ghi điểm), 40% đánh ngẫu nhiên
+            if (state.hoangGood === undefined) state.hoangGood = Math.random() < 0.6;
+            let pick = null;
+            const winning = empty.find(function (cell) {
+                state.board[cell] = opponentMark;
+                const win = xoCheck(state.board, opponentMark);
+                state.board[cell] = '';
+                return win;
+            });
+            const blocking = empty.find(function (cell) {
+                state.board[cell] = state.myMark;
+                const win = xoCheck(state.board, state.myMark);
+                state.board[cell] = '';
+                return win;
+            });
+            if (state.hoangGood) {
+                pick = winning !== undefined ? winning : (blocking !== undefined ? blocking : null);
+            } else if (Math.random() < 0.5) {
+                pick = blocking !== undefined ? blocking : null;
+            }
+            if (pick === null) pick = empty[Math.floor(Math.random() * empty.length)];
             state.board[pick] = opponentMark;
             if (xoCheck(state.board, opponentMark)) return finishXo(false);
             if (state.board.every(Boolean)) return finishXo(null);
