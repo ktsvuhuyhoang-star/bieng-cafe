@@ -230,6 +230,19 @@ const VEHICLE_NAME = { walk: 'Đi bộ', bike: 'Xe đạp', motorbike: 'Xe máy'
 // Dùng đúng emoji như lúc chọn phương tiện ở cửa
 const VEHICLE_EMOJI = { walk: '🚶', bike: '🚲', motorbike: '🛵', car: '🚗' };
 const VEHICLE_FONT = '"Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif';
+const BADGE_KEY = 'bieng.badges';
+
+function loadBadges() {
+    try {
+        const list = JSON.parse(localStorage.getItem(BADGE_KEY) || '[]');
+        return Array.isArray(list) ? list : [];
+    } catch (error) { return []; }
+}
+
+function tagText(name, badges) {
+    const prefix = (badges || []).join('');
+    return prefix ? prefix + ' ' + name : name;
+}
 
 class CafeScene extends Phaser.Scene {
     constructor() {
@@ -278,7 +291,7 @@ class CafeScene extends Phaser.Scene {
         this.physics.add.collider(this.player, this.obstacles);
 
         // Name Tag
-        this.playerNameTag = this.add.text(180, 110, profile.name, {
+        this.playerNameTag = this.add.text(180, 110, tagText(profile.name, loadBadges()), {
             fontFamily: 'sans-serif',
             fontSize: '11px',
             fontStyle: 'bold',
@@ -286,6 +299,11 @@ class CafeScene extends Phaser.Scene {
             stroke: '#000000',
             strokeThickness: 3
         }).setOrigin(0.5).setDepth(35);
+
+        this.profileName = profile.name;
+        window.addEventListener('bieng:badges', () => {
+            if (this.playerNameTag) this.playerNameTag.setText(tagText(this.profileName, loadBadges()));
+        });
 
         this.playerSpeechBubble = this.add.text(180, 95, '', {
             fontFamily: 'sans-serif',
@@ -522,6 +540,14 @@ class CafeScene extends Phaser.Scene {
             window.showSystemNotice(`${data.player.name} vừa bước vào Bieng Cafe ☕`);
         });
 
+        window.cafeNetwork.on('player_badges', (data) => {
+            const rp = this.remotePlayers[data.id];
+            if (rp) {
+                rp.badges = data.badges || [];
+                rp.nameTag.setText(tagText(rp.name, rp.badges));
+            }
+        });
+
         window.cafeNetwork.on('player_leave', (data) => {
             this.removeRemotePlayer(data.id);
             window.showSystemNotice(`${data.name} đã chào tạm biệt ra về 👋`);
@@ -625,7 +651,7 @@ class CafeScene extends Phaser.Scene {
             if (vehicleSprite) vehicleSprite.setPosition(parkX, parkY);
         }
 
-        const nameTag = this.add.text(info.x, info.y - 30, info.name, {
+        const nameTag = this.add.text(info.x, info.y - 30, tagText(info.name, info.badges), {
             fontFamily: 'sans-serif',
             fontSize: '11px',
             fontStyle: 'bold',
@@ -650,6 +676,8 @@ class CafeScene extends Phaser.Scene {
 
         this.remotePlayers[info.id] = {
             sprite, nameTag, statusTag, speechBubble, vehicleSprite,
+            name: info.name,
+            badges: info.badges || [],
             vehicle: info.vehicle || 'walk',
             parked: !!info.parked,
             parkX: parkX,
@@ -720,6 +748,11 @@ class CafeScene extends Phaser.Scene {
 
         if (this.currentInteractZone === 'order') {
             window.toggleDrinksModal(true);
+            return;
+        }
+
+        if (this.duelTarget && window.BiengDuel) {
+            window.BiengDuel.challenge(this.duelTarget.id, this.duelTarget.name);
         }
     }
 
@@ -732,6 +765,21 @@ class CafeScene extends Phaser.Scene {
             if (dist < reach && dist < bestDistance) {
                 best = ch;
                 bestDistance = dist;
+            }
+        }
+        return best;
+    }
+
+    /** Người chơi gần nhất trong bán kính — dùng để thách đấu. */
+    nearestPlayer(maxDistance) {
+        let best = null;
+        let bestDistance = maxDistance;
+        for (let id in this.remotePlayers) {
+            const rp = this.remotePlayers[id];
+            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, rp.sprite.x, rp.sprite.y);
+            if (distance < bestDistance) {
+                bestDistance = distance;
+                best = { id: id, name: rp.name || 'Khách', distance: distance };
             }
         }
         return best;
@@ -912,6 +960,7 @@ class CafeScene extends Phaser.Scene {
         // Zone detection
         let promptText = "";
         this.currentInteractZone = null;
+        this.duelTarget = null;
         const inParking = this.needsParking() && this.inParkingZone();
         if (inParking) {
             // Bước vào bãi là gửi xe luôn, không cần bấm nút
@@ -931,6 +980,12 @@ class CafeScene extends Phaser.Scene {
                     promptText = "Bạn còn xe kìa, gửi xe trước nhé 🛵";
                 } else {
                     promptText = "[E] / Chạm: Ngồi xuống " + (nearChair.seatKind === 'bồn cầu' ? "🚽" : nearChair.seatKind === 'sofa' ? "🛋️" : "🪑");
+                }
+            } else {
+                const opponent = this.nearestPlayer(80);
+                if (opponent && !this.needsParking() && !(window.BiengDuel && window.BiengDuel.busy())) {
+                    this.duelTarget = opponent;
+                    promptText = "[E] / Chạm: Thách đấu " + opponent.name + " ⚔️";
                 }
             }
         }

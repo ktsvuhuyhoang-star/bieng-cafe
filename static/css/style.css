@@ -627,20 +627,53 @@ body.is-fullscreen { background: #000; }
     #mobile-action-btn { width: 60px; height: 60px; }
 }
 
-/* ===== Cờ vua ===== */
+/* ===== Cờ vua đã bỏ — giữ chỗ cho CSS đấu tay đôi ===== */
 .hud-actions { flex-wrap: wrap; justify-content: flex-end; }
-#chess-canvas {
+
+/* ===== Thách đấu ===== */
+#duel-canvas {
     display: block;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     height: auto;
     margin: 0 auto;
     border-radius: 10px;
-    border: 1px solid #6b4a2a;
-    background: #3b2a1a;
+    border: 1px solid #334155;
+    background: #101a2b;
+    touch-action: none;
     cursor: pointer;
-    touch-action: manipulation;
 }
+.duel-options { display: grid; gap: 10px; }
+.duel-option {
+    display: grid;
+    grid-template-columns: 36px 1fr;
+    grid-template-rows: auto auto;
+    align-items: center;
+    gap: 2px 10px;
+    padding: 12px;
+    text-align: left;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid var(--cafe-panel-border);
+    border-radius: 10px;
+    color: var(--cafe-cream);
+    font-size: 22px;
+    cursor: pointer;
+}
+.duel-option:hover { border-color: var(--cafe-gold); background: rgba(251, 191, 36, 0.08); }
+.duel-option span { grid-column: 2; font-size: 15px; font-weight: bold; }
+.duel-option em { grid-column: 2; font-size: 11.5px; font-style: normal; color: #94a3b8; }
+.duel-rps { display: flex; justify-content: center; gap: 12px; margin-top: 10px; }
+.rps-btn {
+    width: 64px;
+    height: 64px;
+    font-size: 28px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid var(--cafe-panel-border);
+    border-radius: 12px;
+    cursor: pointer;
+}
+.rps-btn:disabled { opacity: 0.35; cursor: default; }
+.rps-btn:not(:disabled):hover { border-color: var(--cafe-gold); }
 
 /* ===== Phương tiện & bãi giữ xe ===== */
 .vehicle-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }

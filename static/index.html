@@ -32,8 +32,6 @@
                 <button class="hud-btn" id="btn-news">📌 Bảng tin</button>
                 <button class="hud-btn" id="btn-board">💬 Lời nhắn</button>
                 <button class="hud-btn" id="btn-jukebox">🎵 Jukebox</button>
-                <button class="hud-btn" id="btn-study">⏱️ Học tập</button>
-                <button class="hud-btn" id="btn-chess">♞ Cờ vua</button>
                 <button class="hud-btn" id="btn-fullscreen" title="Bật/tắt toàn màn hình">⛶ Toàn màn hình</button>
                 <button class="hud-btn hud-btn-admin" id="btn-admin">🔐 Quản trị</button>
             </div>
@@ -210,23 +208,50 @@
             </div>
         </div>
 
-        <!-- Study Corner & Pomodoro Modal -->
-        <div id="study-modal" class="modal-overlay hidden">
-            <div class="modal-content">
-                <button class="modal-close" data-close="study-modal">&times;</button>
-                <h3 class="modal-title">📚 Góc Học Tập & Tập Trung</h3>
-
-                <div class="timer-box">
-                    <div class="timer-digits" id="pomodoro-time">25:00</div>
-                    <div class="timer-controls">
-                        <button class="timer-btn" id="pomodoro-start">Bắt đầu ⏱️</button>
-                        <button class="timer-btn secondary" id="pomodoro-reset">Đặt lại 🔄</button>
-                    </div>
+        <!-- Thách đấu: chọn trò -->
+        <div id="duel-choose" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <button class="modal-close" data-close="duel-choose">&times;</button>
+                <h3 class="modal-title">⚔️ Thách Đấu</h3>
+                <p class="modal-hint" id="duel-choose-hint">Chọn trò chơi với người bên cạnh.</p>
+                <div class="duel-options">
+                    <button class="duel-option" data-game="tug">
+                        🪢<span>Kéo co</span><em>8 giây, ai chạm nhiều hơn thắng</em>
+                    </button>
+                    <button class="duel-option" data-game="rps">
+                        ✌️<span>Oẳn tù tì</span><em>Ai thắng 2 ván trước</em>
+                    </button>
                 </div>
+            </div>
+        </div>
 
-                <div class="form-group">
-                    <label>Sổ tay ghi chú (tự động lưu):</label>
-                    <textarea id="study-notes" rows="4" placeholder="Ghi lại việc cần làm hoặc suy nghĩ lúc ngồi tại quán..."></textarea>
+        <!-- Thách đấu: lời mời -->
+        <div id="duel-invite" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <h3 class="modal-title">⚔️ Lời thách đấu</h3>
+                <p class="modal-hint" id="duel-invite-text"></p>
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="duel-decline">Từ chối</button>
+                    <button class="primary-btn" id="duel-accept" style="margin-top:0">Đồng ý</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thách đấu: sân đấu -->
+        <div id="duel-modal" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <h3 class="modal-title" id="duel-title">Đấu</h3>
+                <p class="modal-hint" id="duel-hint"></p>
+                <canvas id="duel-canvas" width="420" height="220"></canvas>
+                <div id="duel-rps" class="duel-rps hidden">
+                    <button class="rps-btn" data-choice="rock">✊</button>
+                    <button class="rps-btn" data-choice="paper">✋</button>
+                    <button class="rps-btn" data-choice="scissors">✌️</button>
+                </div>
+                <p class="mini-status" id="duel-status"></p>
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="duel-rematch">Đấu lại 🔁</button>
+                    <button class="timer-btn" id="duel-close">Đóng</button>
                 </div>
             </div>
         </div>
@@ -281,21 +306,6 @@
             </div>
         </div>
 
-        <!-- Cờ vua -->
-        <div id="chess-modal" class="modal-overlay hidden">
-            <div class="modal-content mini">
-                <button class="modal-close" data-close="chess-modal">&times;</button>
-                <h3 class="modal-title">♞ Cờ Vua</h3>
-                <p class="modal-hint">Hai người chơi chung một máy. Trắng đi trước; bấm quân để xem nước hợp lệ. Có nhập thành, bắt tốt qua đường và phong cấp (tự phong Hậu).</p>
-                <canvas id="chess-canvas" width="400" height="400"></canvas>
-                <p class="mini-status" id="chess-status">Lượt của Trắng.</p>
-                <div class="mini-actions">
-                    <button class="timer-btn secondary" id="chess-undo">Đi lại ↩️</button>
-                    <button class="timer-btn" id="chess-new">Ván mới 🔄</button>
-                </div>
-            </div>
-        </div>
-
     </div>
 
     <!-- Scripts -->
@@ -307,7 +317,6 @@
     <script src="/static/js/ui.js"></script>
     <script src="/static/js/minigames.js"></script>
     <script src="/static/js/community.js"></script>
-    <script src="/static/js/chess-rules.js"></script>
-    <script src="/static/js/chess.js"></script>
+    <script src="/static/js/duel.js"></script>
 </body>
 </html>

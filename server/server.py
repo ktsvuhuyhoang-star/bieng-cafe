@@ -39,6 +39,12 @@ VERSION = '3.1'
 PROJECT_ID = hashlib.sha256(str(ROOT).casefold().encode()).hexdigest()[:20]
 COLORS = {'shirt': '#d97706', 'hair': '#451a03', 'skin': '#fed7aa', 'pants': '#1e293b'}
 VEHICLES = ('walk', 'bike', 'motorbike', 'car')
+DUEL_GAMES = ('tug', 'rps')
+DUEL_TUG_SECONDS = 8
+DUEL_INVITE_SECONDS = 20
+DUEL_MAX_DISTANCE = 140
+RPS_BEATS = {'rock': 'scissors', 'scissors': 'paper', 'paper': 'rock'}
+BADGES = ('🏆', '✌️', '☕', '🧼', '🚪', '🌟')
 
 ADMIN_PASSWORD = '20101995'
 MAX_POSTS, MAX_MESSAGES = 200, 500
@@ -90,6 +96,9 @@ class Cafe:
         self.clients = {}
         self.players = {}
         self.jukebox = {'current_track': 0}
+        self.wc_open = True
+        self.duels = {}
+        self.duel_seq = 0
         self.failures = {}
         self.community = self.load_community()
         self.sequence = {'post': self.max_id('P'), 'message': self.max_id('M')}
@@ -283,6 +292,145 @@ class Cafe:
         payload.update(self.community_payload())
         self.schedule(self.broadcast(payload))
 
+    # ---------- đấu tay đôi (kéo co / oẳn tù tì) ----------
+    def spawn(self, coroutine):
+        try:
+            asyncio.get_running_loop().create_task(coroutine)
+        except RuntimeError:
+            self.schedule(coroutine)
+
+    async def send_error(self, ws, message):
+        await self._safe_send(ws, json.dumps({'type': 'error', 'message': message}, ensure_ascii=False))
+
+    async def send_to(self, pid, payload):
+        connection = self.clients.get(pid)
+        if connection:
+            await self._safe_send(connection, json.dumps(payload, ensure_ascii=False))
+
+    def duel_of(self, pid):
+        for duel in list(self.duels.values()):
+            if duel['state'] in ('pending', 'playing') and pid in (duel['a'], duel['b']):
+                return duel
+        return None
+
+    async def duel_invite(self, ws, pid, data):
+        target = text(data.get('to'), 64)
+        game = data.get('game') if data.get('game') in DUEL_GAMES else 'tug'
+        me, other = self.players.get(pid), self.players.get(target)
+        if not me or not other or target == pid:
+            return await self.send_error(ws, 'Không tìm thấy người chơi đó.')
+        if self.duel_of(pid) or self.duel_of(target):
+            return await self.send_error(ws, 'Một trong hai đang trong trận khác rồi.')
+        if math.hypot(me['x'] - other['x'], me['y'] - other['y']) > DUEL_MAX_DISTANCE:
+            return await self.send_error(ws, 'Đứng gần nhau hơn rồi thách đấu nhé.')
+        self.duel_seq += 1
+        duel = {'id': 'D-' + str(self.duel_seq), 'game': game, 'a': pid, 'b': target,
+                'names': {pid: me['name'], target: other['name']},
+                'state': 'pending', 'a_taps': 0, 'b_taps': 0,
+                'a_choice': None, 'b_choice': None,
+                'score': {pid: 0, target: 0}, 'round': 1}
+        self.duels[duel['id']] = duel
+        await self.send_to(target, {'type': 'duel_invite', 'id': duel['id'], 'game': game,
+                                    'from': pid, 'from_name': me['name']})
+        await self.send_to(pid, {'type': 'duel_sent', 'id': duel['id'], 'game': game,
+                                 'to_name': other['name']})
+        self.spawn(self._expire_duel(duel['id']))
+
+    async def _expire_duel(self, duel_id):
+        await asyncio.sleep(DUEL_INVITE_SECONDS)
+        duel = self.duels.get(duel_id)
+        if not duel or duel['state'] != 'pending':
+            return
+        await self._finish_duel(duel, None, 'timeout')
+
+    async def duel_answer(self, ws, pid, data):
+        duel = self.duels.get(text(data.get('id'), 20))
+        if not duel or duel['b'] != pid or duel['state'] != 'pending':
+            return
+        if not data.get('accept'):
+            return await self._finish_duel(duel, None, 'declined')
+        duel['state'] = 'playing'
+        if duel['game'] == 'tug':
+            self.spawn(self._finish_tug(duel['id']))
+        payload = {'type': 'duel_start', 'id': duel['id'], 'game': duel['game'],
+                   'a': duel['a'], 'b': duel['b'], 'names': duel['names'],
+                   'seconds': DUEL_TUG_SECONDS}
+        await self.send_to(duel['a'], payload)
+        await self.send_to(duel['b'], payload)
+
+    async def duel_tap(self, ws, pid, data):
+        duel = self.duels.get(text(data.get('id'), 20))
+        if not duel or duel['state'] != 'playing' or duel['game'] != 'tug':
+            return
+        if pid == duel['a']:
+            duel['a_taps'] += 1
+        elif pid == duel['b']:
+            duel['b_taps'] += 1
+        else:
+            return
+        payload = {'type': 'duel_progress', 'id': duel['id'],
+                   'a_taps': duel['a_taps'], 'b_taps': duel['b_taps']}
+        await self.send_to(duel['a'], payload)
+        await self.send_to(duel['b'], payload)
+
+    async def duel_rps(self, ws, pid, data):
+        duel = self.duels.get(text(data.get('id'), 20))
+        choice = data.get('choice')
+        if not duel or duel['state'] != 'playing' or duel['game'] != 'rps' or choice not in RPS_BEATS:
+            return
+        if pid == duel['a']:
+            duel['a_choice'] = choice
+        elif pid == duel['b']:
+            duel['b_choice'] = choice
+        else:
+            return
+        if not (duel['a_choice'] and duel['b_choice']):
+            return
+        a_choice, b_choice = duel['a_choice'], duel['b_choice']
+        winner = None
+        if RPS_BEATS[a_choice] == b_choice:
+            winner = duel['a']
+        elif RPS_BEATS[b_choice] == a_choice:
+            winner = duel['b']
+        if winner:
+            duel['score'][winner] += 1
+        duel['a_choice'] = duel['b_choice'] = None
+        payload = {'type': 'duel_round', 'id': duel['id'], 'round': duel['round'],
+                   'a_choice': a_choice, 'b_choice': b_choice, 'winner': winner,
+                   'score': duel['score']}
+        duel['round'] += 1
+        await self.send_to(duel['a'], payload)
+        await self.send_to(duel['b'], payload)
+        if max(duel['score'].values()) >= 2:
+            await self._finish_duel(duel, winner if duel['score'][winner] >= 2 else
+                                    (duel['a'] if duel['score'][duel['a']] > duel['score'][duel['b']] else duel['b']),
+                                    'score')
+
+    async def _finish_tug(self, duel_id):
+        await asyncio.sleep(DUEL_TUG_SECONDS)
+        duel = self.duels.get(duel_id)
+        if not duel or duel['state'] != 'playing':
+            return
+        if duel['a_taps'] == duel['b_taps']:
+            winner = None
+        else:
+            winner = duel['a'] if duel['a_taps'] > duel['b_taps'] else duel['b']
+        await self._finish_duel(duel, winner, 'time')
+
+    async def _finish_duel(self, duel, winner, reason=''):
+        duel['state'] = 'done'
+        payload = {'type': 'duel_end', 'id': duel['id'], 'game': duel['game'],
+                   'winner': winner, 'names': duel['names'], 'reason': reason,
+                   'a_taps': duel['a_taps'], 'b_taps': duel['b_taps'], 'score': duel['score']}
+        for participant in (duel['a'], duel['b']):
+            await self.send_to(participant, payload)
+        self.duels.pop(duel['id'], None)
+
+    async def cancel_duel(self, pid):
+        duel = self.duel_of(pid)
+        if duel:
+            await self._finish_duel(duel, None, 'left')
+
     # ---------- websocket ----------
     async def connect(self, ws):
         requested = unquote(urlsplit(ws.request.path).path).removeprefix('/ws/')
@@ -300,6 +448,7 @@ class Cafe:
         try:
             await ws.send(json.dumps({'type': 'welcome', 'your_id': pid, 'players': self.players,
                                       'jukebox': self.jukebox, 'version': VERSION,
+                                      'wc_open': self.wc_open,
                                       'community': self.community_payload()}, ensure_ascii=False))
             async for raw in ws:
                 try:
@@ -319,6 +468,7 @@ class Cafe:
                                   'vehicle': data.get('vehicle') if data.get('vehicle') in VEHICLES else 'walk',
                                   'parked': (data.get('vehicle') if data.get('vehicle') in VEHICLES else 'walk') == 'walk',
                                   'park_x': None, 'park_y': None,
+                                  'badges': [b for b in (data.get('badges') or []) if b in BADGES][:4],
                                   'muted': self.is_muted(data.get('name') or '')}
                         self.players[pid] = player
                         await self.broadcast({'type': 'player_join', 'player': player}, exclude=pid)
@@ -350,6 +500,22 @@ class Cafe:
                                                              ensure_ascii=False))
                         await self.broadcast({'type': 'player_park', 'id': pid, 'vehicle': player['vehicle'],
                                               'parked': True, 'x': park_x, 'y': park_y}, exclude=pid)
+                    elif event == 'badges' and pid in self.players:
+                        badges = [b for b in (data.get('badges') or []) if b in BADGES][:4]
+                        self.players[pid]['badges'] = badges
+                        await self.broadcast({'type': 'player_badges', 'id': pid, 'badges': badges}, exclude=pid)
+                    elif event == 'wc_toggle' and pid in self.players:
+                        self.wc_open = bool(data.get('open', not self.wc_open))
+                        await self.broadcast({'type': 'wc_state', 'open': self.wc_open,
+                                              'by': self.players[pid]['name']})
+                    elif event == 'duel_invite':
+                        await self.duel_invite(ws, pid, data)
+                    elif event == 'duel_answer':
+                        await self.duel_answer(ws, pid, data)
+                    elif event == 'duel_tap':
+                        await self.duel_tap(ws, pid, data)
+                    elif event == 'duel_rps':
+                        await self.duel_rps(ws, pid, data)
                     elif event == 'chat' and pid in self.players:
                         message = text(data.get('text'), 500).strip()
                         if not message:
@@ -377,6 +543,7 @@ class Cafe:
             pass
         finally:
             self.clients.pop(pid, None)
+            await self.cancel_duel(pid)
             player = self.players.pop(pid, None)
             if player:
                 await self.broadcast({'type': 'player_leave', 'id': pid, 'name': player['name']})

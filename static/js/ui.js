@@ -1,14 +1,11 @@
 /**
- * Bieng Cafe - UI, HUD, quầy pha chế (3 món + mini game), jukebox, Pomodoro, chat, mobile.
+ * Bieng Cafe - UI, HUD, quầy pha chế (mini game), jukebox, chat, mobile, toàn màn hình.
  */
 
 // Global state
 window.mobileDpadState = { up: false, down: false, left: false, right: false };
 window.localPlayerProfile = null;
 let gameInstance = null;
-let pomodoroSeconds = 25 * 60;
-let pomodoroTimerId = null;
-let pomodoroRunning = false;
 
 const DRINK_MENU = [
     { key: 'pourover', icon: '🌊', name: 'Pour-over', desc: 'Rót tay chậm rãi, hương hoa quả thanh thoát.' },
@@ -146,7 +143,7 @@ window.utilitiesLocked = function () {
 
 window.refreshUtilityLocks = function () {
     const locked = window.utilitiesLocked();
-    ['btn-drinks', 'btn-jukebox', 'btn-study', 'btn-chess'].forEach(function (id) {
+    ['btn-drinks', 'btn-jukebox'].forEach(function (id) {
         const element = document.getElementById(id);
         if (element) element.classList.toggle('locked', locked);
     });
@@ -166,11 +163,6 @@ function blurEditor() {
 window.toggleJukeboxModal = function (show) {
     if (show && window.requireParking && window.requireParking()) return;
     document.getElementById('jukebox-modal').classList.toggle('hidden', !show);
-    if (!show) blurEditor();
-};
-window.toggleStudyModal = function (show) {
-    if (show && window.requireParking && window.requireParking()) return;
-    document.getElementById('study-modal').classList.toggle('hidden', !show);
     if (!show) blurEditor();
 };
 window.toggleDrinksModal = function (show) {
@@ -266,62 +258,7 @@ function initJukebox() {
     if (jukeboxButton) jukeboxButton.addEventListener('click', function () { window.toggleJukeboxModal(true); });
 }
 
-// 6. Pomodoro
-function initPomodoro() {
-    const display = document.getElementById('pomodoro-time');
-    const startButton = document.getElementById('pomodoro-start');
-    const resetButton = document.getElementById('pomodoro-reset');
-    const notes = document.getElementById('study-notes');
-
-    if (localStorage.getItem('cafe_notes')) notes.value = localStorage.getItem('cafe_notes');
-    notes.addEventListener('input', function () { localStorage.setItem('cafe_notes', notes.value); });
-
-    function render() {
-        const minutes = Math.floor(pomodoroSeconds / 60).toString().padStart(2, '0');
-        const seconds = (pomodoroSeconds % 60).toString().padStart(2, '0');
-        display.innerText = minutes + ':' + seconds;
-    }
-
-    startButton.addEventListener('click', function () {
-        if (!pomodoroRunning) {
-            pomodoroRunning = true;
-            startButton.innerText = 'Tạm dừng ⏸️';
-            pomodoroTimerId = setInterval(function () {
-                if (pomodoroSeconds > 0) {
-                    pomodoroSeconds--;
-                    render();
-                } else {
-                    clearInterval(pomodoroTimerId);
-                    pomodoroRunning = false;
-                    startButton.innerText = 'Bắt đầu ⏱️';
-                    window.cafeAudio.playDing();
-                    alert('🔔 Đã hết 25 phút tập trung! Nghỉ giải lao một chút nào ☕');
-                    pomodoroSeconds = 5 * 60;
-                    render();
-                }
-            }, 1000);
-        } else {
-            pomodoroRunning = false;
-            clearInterval(pomodoroTimerId);
-            startButton.innerText = 'Tiếp tục ▶️';
-        }
-    });
-
-    resetButton.addEventListener('click', function () {
-        clearInterval(pomodoroTimerId);
-        pomodoroRunning = false;
-        pomodoroSeconds = 25 * 60;
-        startButton.innerText = 'Bắt đầu ⏱️';
-        render();
-    });
-
-    const studyButton = document.getElementById('btn-study');
-    if (studyButton) studyButton.addEventListener('click', function () { window.toggleStudyModal(true); });
-
-    render();
-}
-
-// 7. Chat
+// 6. Chat
 function initChat() {
     const input = document.getElementById('chat-input');
     const sendButton = document.getElementById('chat-send-btn');
@@ -435,7 +372,6 @@ window.addEventListener('DOMContentLoaded', function () {
     initEntry();
     initDrinks();
     initJukebox();
-    initPomodoro();
     initChat();
     initMobileControls();
     initFullscreen();
