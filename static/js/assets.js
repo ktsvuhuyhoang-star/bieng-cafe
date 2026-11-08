@@ -591,6 +591,23 @@ const PixelArt = {
                     this.drawRect(ctx, ox + 7, oy + 30 + bob, 4, 2, '#0f172a');
                     this.drawRect(ctx, ox + 13, oy + 30 + bob, 4, 2, '#0f172a');
                 }
+
+                // Nữ: tóc dài hai bên + váy ngắn
+                if (outfit.gender === 'female') {
+                    const skirt = outfit.skirt || shirt;
+                    if (dir === 0) {
+                        this.drawRect(ctx, ox + 4, oy + 6 + bob, 3, 11, hair);
+                        this.drawRect(ctx, ox + 17, oy + 6 + bob, 3, 11, hair);
+                        this.drawRect(ctx, ox + 6, oy + 22 + bob, 12, 4, skirt);
+                    } else if (dir === 3) {
+                        this.drawRect(ctx, ox + 5, oy + 4 + bob, 14, 14, hair);
+                        this.drawRect(ctx, ox + 6, oy + 22 + bob, 12, 4, skirt);
+                    } else {
+                        const backX = dir === 1 ? ox + 4 : ox + 16;
+                        this.drawRect(ctx, backX, oy + 5 + bob, 4, 13, hair);
+                        this.drawRect(ctx, ox + 6, oy + 22 + bob, 12, 4, skirt);
+                    }
+                }
             }
         }
 

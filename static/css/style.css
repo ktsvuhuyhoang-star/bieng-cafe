@@ -743,3 +743,21 @@ body.is-fullscreen { background: #000; }
 @media (max-width: 820px) {
     .follow-bar { bottom: calc(120px + env(safe-area-inset-bottom)); font-size: 11.5px; }
 }
+
+/* Chọn giới tính */
+.gender-row { display: flex; gap: 10px; }
+.gender-option {
+    flex: 1;
+    padding: 9px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--cafe-panel-border);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--cafe-cream);
+    font-size: 14px;
+    cursor: pointer;
+}
+.gender-option.selected {
+    border-color: var(--cafe-gold);
+    background: rgba(251, 191, 36, 0.16);
+    font-weight: bold;
+}

@@ -558,9 +558,11 @@ class Cafe:
                     if event == 'join':
                         if pid in self.players:
                             continue
-                        outfit = data.get('outfit') if isinstance(data.get('outfit'), dict) else {}
-                        outfit = {k: (outfit[k] if re.fullmatch(r'#[0-9A-Fa-f]{6}', str(outfit.get(k, ''))) else v)
+                        outfit_source = data.get('outfit') if isinstance(data.get('outfit'), dict) else {}
+                        outfit = {k: (outfit_source[k] if re.fullmatch(r'#[0-9A-Fa-f]{6}', str(outfit_source.get(k, ''))) else v)
                                   for k, v in COLORS.items()}
+                        outfit['gender'] = 'female' if outfit_source.get('gender') == 'female' else 'male'
+                        outfit['skirt'] = outfit['shirt'] if outfit['gender'] == 'female' else outfit.get('pants', '#1e293b')
                         player = {'id': pid, 'name': clean_name(data.get('name') or 'Khach'), 'outfit': outfit,
                                   'x': number(data.get('x'), 0, 960, 180), 'y': number(data.get('y'), 0, 540, 140),
                                   'direction': 'down', 'is_moving': False, 'seated': False,

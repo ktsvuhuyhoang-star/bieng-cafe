@@ -40,12 +40,26 @@ function initEntry() {
         });
     });
 
+    const genderOptions = document.querySelectorAll('.gender-option');
+    let selectedGender = 'male';
+    genderOptions.forEach(function (option) {
+        option.addEventListener('click', function () {
+            genderOptions.forEach(function (other) { other.classList.remove('selected'); });
+            option.classList.add('selected');
+            selectedGender = option.getAttribute('data-gender') || 'male';
+        });
+    });
+
     enterBtn.addEventListener('click', async function () {
         const name = nameInput.value.trim() || 'Khách Ghé Chơi';
         window.localPlayerProfile = {
             name: name,
             vehicle: selectedVehicle,
-            outfit: { shirt: selectedShirt, hair: '#451a03', skin: '#fed7aa', pants: '#1e293b' }
+            outfit: {
+                shirt: selectedShirt, hair: '#451a03', skin: '#fed7aa', pants: '#1e293b',
+                gender: selectedGender,
+                skirt: selectedGender === 'female' ? selectedShirt : '#1e293b'
+            }
         };
 
         window.cafeAudio.init();
