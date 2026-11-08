@@ -208,6 +208,24 @@
             </div>
         </div>
 
+        <!-- Lời mời đi cùng -->
+        <div id="ride-invite" class="modal-overlay hidden">
+            <div class="modal-content mini">
+                <h3 class="modal-title">🛵 Lời mời đi cùng</h3>
+                <p class="modal-hint" id="ride-invite-text"></p>
+                <div class="mini-actions">
+                    <button class="timer-btn secondary" id="ride-decline">Từ chối</button>
+                    <button class="primary-btn" id="ride-accept" style="margin-top:0">Đồng ý</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thanh huỷ đi theo -->
+        <div id="follow-bar" class="follow-bar hidden">
+            <span id="follow-bar-text"></span>
+            <button class="timer-btn secondary" id="follow-unbind">Hủy đi theo</button>
+        </div>
+
         <!-- Thách đấu: chọn trò -->
         <div id="duel-choose" class="modal-overlay hidden">
             <div class="modal-content mini">
@@ -215,6 +233,9 @@
                 <h3 class="modal-title">⚔️ Thách Đấu</h3>
                 <p class="modal-hint" id="duel-choose-hint">Chọn trò chơi với người bên cạnh.</p>
                 <div class="duel-options">
+                    <button class="duel-option" data-game="ride" id="duel-ride-option">
+                        🛵<span>Rủ lên xe đi cùng</span><em>Chỉ khi bạn chưa gửi xe — chở bạn ấy vào quán</em>
+                    </button>
                     <button class="duel-option" data-game="tug">
                         🪢<span>Kéo co</span><em>8 giây, ai chạm nhiều hơn thắng</em>
                     </button>
@@ -321,5 +342,6 @@
     <script src="/static/js/minigames.js"></script>
     <script src="/static/js/community.js"></script>
     <script src="/static/js/duel.js"></script>
+    <script src="/static/js/ride.js"></script>
 </body>
 </html>

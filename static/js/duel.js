@@ -42,12 +42,20 @@
     }
 
     // ---------- gửi / nhận lời mời ----------
+    function refreshRideOption() {
+        const option = $('duel-ride-option');
+        if (!option) return;
+        const parked = !!(window.guest && window.guest.parked && window.guest.vehicle !== 'walk');
+        option.classList.toggle('hidden', state.npc || parked);
+    }
+
     function challenge(pid, name) {
         if (!pid) return;
         state.npc = false;
         state.lastTarget = { id: pid, name: name };
         const hint = $('duel-choose-hint');
         if (hint) hint.textContent = 'Thách đấu ' + name + ' — chọn trò chơi:';
+        refreshRideOption();
         $('duel-choose').classList.remove('hidden');
     }
 
@@ -56,12 +64,17 @@
         state.lastTarget = { id: 'npc', name: 'Hoàng Bệu' };
         const hint = $('duel-choose-hint');
         if (hint) hint.textContent = 'Thách đấu Hoàng Bệu (chủ quán) — chọn trò:';
+        refreshRideOption();
         $('duel-choose').classList.remove('hidden');
     }
 
     function sendInvite(game) {
         if (!state.lastTarget) return;
         $('duel-choose').classList.add('hidden');
+        if (game === 'ride') {
+            if (window.BiengRide) window.BiengRide.invite(state.lastTarget.id);
+            return;
+        }
         if (state.lastTarget.id === 'npc') return startNpcDuel(game);
         state.npc = false;
         window.cafeNetwork.send({ type: 'duel_invite', to: state.lastTarget.id, game: game });

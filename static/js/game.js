@@ -504,6 +504,19 @@ class CafeScene extends Phaser.Scene {
     }
 
 
+    /** Bật/tắt trạng thái đi theo người khác (tethering). */
+    setFollowing(on, leaderId) {
+        this.followLeaderId = on ? leaderId : null;
+        if (this.player && this.player.body) {
+            this.player.body.checkCollision.none = !!on;
+            if (on) this.player.setVelocity(0, 0);
+        }
+        if (!on) {
+            this.targetPos = null;
+            if (this.vehicleSprite) this.followVehicle();
+        }
+    }
+
     nearWash() {
         const points = this.washPoints || [];
         return points.some((p) => Phaser.Math.Distance.Between(this.player.x, this.player.y, p.x, p.y) < 42);
@@ -953,6 +966,32 @@ class CafeScene extends Phaser.Scene {
         }
 
         if (this.vehicleSprite && window.guest && window.guest.parked) this.placeVehicle();
+
+        // Đang được rủ đi cùng: bám theo người dẫn, không nhận điều khiển
+        if (this.followLeaderId) {
+            const leader = this.remotePlayers[this.followLeaderId];
+            if (leader) {
+                const offset = 18;
+                let targetX = leader.sprite.x;
+                let targetY = leader.sprite.y + offset;
+                if (leader.direction === 'up') targetY = leader.sprite.y + offset;
+                else if (leader.direction === 'left') { targetX = leader.sprite.x + offset; targetY = leader.sprite.y; }
+                else if (leader.direction === 'right') { targetX = leader.sprite.x - offset; targetY = leader.sprite.y; }
+                else targetY = leader.sprite.y - offset;
+                this.player.x = Phaser.Math.Linear(this.player.x, targetX, 0.25);
+                this.player.y = Phaser.Math.Linear(this.player.y, targetY, 0.25);
+                this.player.setVelocity(0, 0);
+                this.player.anims.play('player_local_' + (leader.direction || 'down'), true);
+                this.followVehicle();
+                if (this.heldItemSprite && this.heldItemSprite.visible) {
+                    this.heldItemSprite.setPosition(this.player.x, this.player.y - 6);
+                }
+                window.cafeNetwork.sendMove(this.player.x, this.player.y, leader.direction || 'down', true);
+                window.updateInteractionPrompt('🛵 Đang đi cùng ' + (leader.name || 'bạn ấy'));
+                return;
+            }
+            this.setFollowing(false);
+        }
 
         if (this.isSeated) {
             this.playerNameTag.setPosition(this.player.x, this.player.y - 30);
