@@ -18,8 +18,10 @@ import mimetypes
 import re
 import select
 import socket
+import sys
 import threading
 import time
+import traceback
 import uuid
 import webbrowser
 from datetime import datetime
@@ -836,16 +838,20 @@ class Handler(BaseHTTPRequestHandler):
 
 
 async def run(args):
+    print('[startup] python=' + sys.version.split()[0] + ' host=' + str(args.host)
+          + ' port=' + str(args.port) + ' cwd=' + str(Path.cwd()), flush=True)
     cafe = Cafe(args.data_dir or ROOT / 'data')
     cafe.loop = asyncio.get_running_loop()
     async with serve(cafe.connect, '127.0.0.1', 0, max_size=65536, ping_interval=20, ping_timeout=20) as ws:
         ws_port = ws.sockets[0].getsockname()[1]
+        print('[startup] websocket listening on 127.0.0.1:' + str(ws_port), flush=True)
         http = None
         for port in range(args.port, args.port + 40):
             try:
                 http = HTTP((args.host, port), Handler)
                 break
-            except OSError:
+            except OSError as error:
+                print('[startup] port ' + str(port) + ' busy: ' + str(error), flush=True)
                 continue
         if http is None:
             raise RuntimeError('Khong tim thay cong trong. Dong ban game cu hoac chon --port khac.')
@@ -855,6 +861,7 @@ async def run(args):
         worker.start()
         url = 'http://localhost:' + str(http.server_port)
         print('BIENG CAFE 2D ' + VERSION + '\nGame: ' + url + '/'
+              + '\n[ready] listening on ' + str(args.host) + ':' + str(http.server_port)
               + '\nBang tin, loi nhan, quan tri mat khau va mat bang dung chung da bat.'
               + '\nNhan Ctrl+C trong cua so nay de dung game.', flush=True)
         if args.open:
@@ -891,6 +898,11 @@ def main():
         asyncio.run(run(args))
     except KeyboardInterrupt:
         print('\nDa dung Bieng Cafe.', flush=True)
+    except Exception:
+        print('[fatal] server stopped:', flush=True)
+        traceback.print_exc()
+        sys.stdout.flush()
+        raise
 
 
 if __name__ == '__main__':
