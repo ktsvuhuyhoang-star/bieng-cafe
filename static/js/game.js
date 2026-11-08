@@ -812,6 +812,22 @@ class CafeScene extends Phaser.Scene {
             return;
         }
 
+        // Tay bẩn thì khoá tất cả; còn đang đi xe vẫn thách đấu / rủ đi cùng được
+        if (window.guest && window.guest.dirty) {
+            window.showSystemNotice('Tay còn bẩn — ra lavabo rửa tay rồi hẵng làm tiếp nhé 🧼');
+            return;
+        }
+
+        if (this.duelTarget && window.BiengDuel) {
+            window.BiengDuel.challenge(this.duelTarget.id, this.duelTarget.name);
+            return;
+        }
+
+        if (this.npcTarget && window.BiengDuel) {
+            window.BiengDuel.challengeNpc();
+            return;
+        }
+
         const reason = this.blockReason();
         if (reason) {
             window.showSystemNotice(reason);
@@ -826,16 +842,6 @@ class CafeScene extends Phaser.Scene {
 
         if (this.currentInteractZone === 'order') {
             window.toggleDrinksModal(true);
-            return;
-        }
-
-        if (this.duelTarget && window.BiengDuel) {
-            window.BiengDuel.challenge(this.duelTarget.id, this.duelTarget.name);
-            return;
-        }
-
-        if (this.npcTarget && window.BiengDuel) {
-            window.BiengDuel.challengeNpc();
         }
     }
 
@@ -1078,6 +1084,7 @@ class CafeScene extends Phaser.Scene {
         this.npcTarget = false;
         const inParking = this.needsParking() && this.inParkingZone();
         const blocked = this.blockReason();
+        const dirtyBlocked = !!(window.guest && window.guest.dirty);
         if (inParking) {
             // Bước vào bãi là gửi xe luôn, không cần bấm nút
             this.parkLocally();
@@ -1090,8 +1097,8 @@ class CafeScene extends Phaser.Scene {
             promptText = "[E] / Chạm: Tưới cây 🌱";
         } else if (this.npcPoint && Phaser.Math.Distance.Between(
             this.player.x, this.player.y, this.npcPoint.x, this.npcPoint.y) < 72) {
-            if (blocked) {
-                promptText = blocked;
+            if (dirtyBlocked) {
+                promptText = 'Tay còn bẩn — ra lavabo rửa tay trước nhé 🧼';
             } else {
                 this.npcTarget = true;
                 promptText = "[E] / Chạm: Thách đấu Hoàng Bệu 🎲";
@@ -1113,7 +1120,7 @@ class CafeScene extends Phaser.Scene {
                 }
             } else {
                 const opponent = this.nearestPlayer(80);
-                if (opponent && !blocked && !(window.BiengDuel && window.BiengDuel.busy())) {
+                if (opponent && !dirtyBlocked && !(window.BiengDuel && window.BiengDuel.busy())) {
                     this.duelTarget = opponent;
                     promptText = "[E] / Chạm: Thách đấu / rủ đi cùng " + opponent.name;
                     if (!this.rideHintShown) {
