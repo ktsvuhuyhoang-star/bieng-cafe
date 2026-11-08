@@ -111,7 +111,7 @@ class Cafe:
         self.players = {}
         self.jukebox = {'current_track': 0}
         self.duels = {}
-        self.tethers = {}
+        self.rides = {}
         self.duel_seq = 0
         self.failures = {}
         self.community = self.load_community()
@@ -485,70 +485,51 @@ class Cafe:
         if duel:
             await self._finish_duel(duel, None, 'left')
 
-    # ---------- rủ lên xe đi cùng (tethering) ----------
+    # ---------- rủ đi cùng (v2) ----------
     async def ride_invite(self, ws, pid, data):
-        target = text(data.get('targetId') or data.get('to'), 64)
+        target = text(data.get('targetId'), 64)
         me, other = self.players.get(pid), self.players.get(target)
         if not me or not other or target == pid:
             return await self.send_error(ws, 'Không tìm thấy người đó.')
         if me.get('vehicle', 'walk') != 'walk' and me.get('parked'):
             return await self.send_error(ws, 'Bạn đã gửi xe rồi — phải còn xe mới rủ được.')
-        if pid in self.tethers or target in self.tethers \
-                or pid in self.tethers.values() or target in self.tethers.values():
+        if pid in self.rides or target in self.rides \
+                or pid in self.rides.values() or target in self.rides.values():
             return await self.send_error(ws, 'Một trong hai đang đi cùng người khác.')
         await self.send_to(target, {'type': 'ride_invite', 'from': pid, 'from_name': me['name'],
                                     'vehicle': me.get('vehicle', 'walk')})
-        await self.send_to(pid, {'type': 'ride_sent', 'to_name': other['name']})
 
-    async def ride_accept(self, ws, pid, data):
+    async def ride_answer(self, ws, pid, data):
         leader_id = text(data.get('leaderId'), 64)
         leader, follower = self.players.get(leader_id), self.players.get(pid)
         if not leader or not follower:
             return await self.send_error(ws, 'Người mời đã rời quán rồi.')
-        if pid in self.tethers or leader_id in self.tethers or leader_id in self.tethers.values():
+        if not data.get('accept'):
+            return await self.send_to(leader_id, {'type': 'ride_declined', 'by_name': follower['name']})
+        if pid in self.rides or leader_id in self.rides or leader_id in self.rides.values():
             return await self.send_error(ws, 'Không thể lên xe lúc này.')
-        self.tethers[pid] = leader_id
-        payload = {'type': 'tether_start', 'leader': leader_id, 'follower': pid,
-                   'leader_name': leader['name'], 'follower_name': follower['name'],
-                   'vehicle': leader.get('vehicle', 'walk')}
+        self.rides[pid] = leader_id
+        payload = {'type': 'ride_start', 'leader': leader_id, 'follower': pid,
+                   'leader_name': leader['name'], 'follower_name': follower['name']}
         await self.send_to(leader_id, payload)
         await self.send_to(pid, payload)
-        await self.broadcast({'type': 'update_tether', 'leaderId': leader_id,
-                              'followerId': pid, 'vehicleType': leader.get('vehicle', 'walk')},
-                             exclude=pid)
 
-    async def ride_decline(self, ws, pid, data):
-        leader_id = text(data.get('leaderId'), 64)
-        me = self.players.get(pid)
-        if me and leader_id:
-            await self.send_to(leader_id, {'type': 'ride_declined', 'by_name': me['name']})
-
-    async def ride_unbind(self, ws, pid, data):
-        follower_id = None
-        if pid in self.tethers:
-            follower_id = pid
+    async def ride_stop(self, ws, pid, data):
+        partner = None
+        if pid in self.rides:
+            partner = self.rides.pop(pid)
         else:
-            for follower, leader in list(self.tethers.items()):
+            for follower, leader in list(self.rides.items()):
                 if leader == pid:
-                    follower_id = follower
+                    partner = follower
+                    self.rides.pop(follower, None)
                     break
-        if not follower_id:
-            return
-        leader_id = self.tethers.pop(follower_id, None)
-        payload = {'type': 'tether_end', 'reason': 'unbind'}
-        await self.send_to(follower_id, payload)
-        if leader_id:
-            await self.send_to(leader_id, payload)
+        if partner:
+            for who in (pid, partner):
+                await self.send_to(who, {'type': 'ride_stop', 'reason': 'left'})
 
     async def ride_cleanup(self, pid):
-        """Người chơi rời quán: gỡ mọi liên kết xe liên quan và báo cho người còn lại."""
-        if pid in self.tethers:
-            leader_id = self.tethers.pop(pid)
-            await self.send_to(leader_id, {'type': 'tether_end', 'reason': 'follower_left'})
-        for follower, leader in list(self.tethers.items()):
-            if leader == pid:
-                self.tethers.pop(follower, None)
-                await self.send_to(follower, {'type': 'tether_end', 'reason': 'leader_left'})
+        await self.ride_stop(None, pid, {})
 
     # ---------- websocket ----------
     async def connect(self, ws):
@@ -632,14 +613,12 @@ class Cafe:
                         await self.duel_rps(ws, pid, data)
                     elif event == 'duel_move':
                         await self.duel_move(ws, pid, data)
-                    elif event == 'invite_ride':
+                    elif event == 'ride_invite':
                         await self.ride_invite(ws, pid, data)
-                    elif event == 'accept_ride':
-                        await self.ride_accept(ws, pid, data)
-                    elif event == 'decline_ride':
-                        await self.ride_decline(ws, pid, data)
-                    elif event == 'unbind_ride':
-                        await self.ride_unbind(ws, pid, data)
+                    elif event == 'ride_answer':
+                        await self.ride_answer(ws, pid, data)
+                    elif event == 'ride_stop':
+                        await self.ride_stop(ws, pid, data)
                     elif event == 'chat' and pid in self.players:
                         message = text(data.get('text'), 500).strip()
                         if not message:
