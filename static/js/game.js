@@ -1115,7 +1115,11 @@ class CafeScene extends Phaser.Scene {
                 const opponent = this.nearestPlayer(80);
                 if (opponent && !blocked && !(window.BiengDuel && window.BiengDuel.busy())) {
                     this.duelTarget = opponent;
-                    promptText = "[E] / Chạm: Thách đấu " + opponent.name + " ⚔️";
+                    promptText = "[E] / Chạm: Thách đấu / rủ đi cùng " + opponent.name;
+                    if (!this.rideHintShown) {
+                        this.rideHintShown = true;
+                        window.showSystemNotice('💡 Bấm E để thách đấu, hoặc rủ ' + opponent.name + ' lên xe đi cùng (khi bạn chưa gửi xe).');
+                    }
                 }
             }
         }

@@ -46,7 +46,16 @@
         const option = $('duel-ride-option');
         if (!option) return;
         const parked = !!(window.guest && window.guest.parked && window.guest.vehicle !== 'walk');
-        option.classList.toggle('hidden', state.npc || parked);
+        // Luôn hiện (trừ khi đấu với NPC), chỉ khoá lại kèm lý do nếu đã gửi xe
+        option.classList.toggle('hidden', state.npc);
+        option.classList.toggle('disabled', parked);
+        option.disabled = parked;
+        const note = option.querySelector('em');
+        if (note) {
+            note.textContent = parked
+                ? 'Bạn đã gửi xe rồi — chỉ rủ được khi còn xe'
+                : 'Bạn chưa gửi xe — chở bạn ấy vào quán';
+        }
     }
 
     function challenge(pid, name) {
@@ -54,7 +63,7 @@
         state.npc = false;
         state.lastTarget = { id: pid, name: name };
         const hint = $('duel-choose-hint');
-        if (hint) hint.textContent = 'Thách đấu ' + name + ' — chọn trò chơi:';
+        if (hint) hint.textContent = 'Chọn việc với ' + name + ':';
         refreshRideOption();
         $('duel-choose').classList.remove('hidden');
     }
